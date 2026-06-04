@@ -1,15 +1,11 @@
 import { useProjectStore } from '../store/useProjectStore'
-import type { GrainDirection, StockPanel } from '../lib/types'
+import type { StockPanel } from '../lib/types'
+import { GrainPicker } from './GrainPicker'
 
 function newPanel(): StockPanel {
+  // Standard sheet: 2440 mm (lengte) × 1220 mm (breedte)
   return { id: crypto.randomUUID(), label: '', width: 2440, height: 1220, grainDirection: 'verticaal' }
 }
-
-const GRAIN_OPTIONS: { value: GrainDirection; label: string }[] = [
-  { value: 'verticaal', label: 'Verticaal' },
-  { value: 'horizontaal', label: 'Horizontaal' },
-  { value: 'geen', label: 'Geen' },
-]
 
 export function StockTable() {
   const { stockPanels, addStock, updateStock, removeStock } = useProjectStore()
@@ -24,8 +20,8 @@ export function StockTable() {
           <thead>
             <tr className="text-left text-slate-500 border-b border-slate-200">
               <th className="pb-1 pr-2 font-medium">Label</th>
+              <th className="pb-1 pr-2 font-medium">Lengte (mm)</th>
               <th className="pb-1 pr-2 font-medium">Breedte (mm)</th>
-              <th className="pb-1 pr-2 font-medium">Hoogte (mm)</th>
               <th className="pb-1 pr-2 font-medium">Nerf</th>
               <th className="pb-1" />
             </tr>
@@ -58,13 +54,10 @@ export function StockTable() {
                   />
                 </td>
                 <td className="py-1 pr-2">
-                  <select
-                    className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  <GrainPicker
                     value={p.grainDirection}
-                    onChange={e => updateStock(p.id, { grainDirection: e.target.value as GrainDirection })}
-                  >
-                    {GRAIN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                    onChange={v => updateStock(p.id, { grainDirection: v })}
+                  />
                 </td>
                 <td className="py-1">
                   <button
