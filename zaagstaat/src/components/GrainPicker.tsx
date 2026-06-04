@@ -26,15 +26,17 @@ function IconHorizontaal({ active }: { active: boolean }) {
 /** Circular rotation arrow — for parts: "mag vrij draaien" */
 function IconRotate({ active }: { active: boolean }) {
   const c = active ? '#1d4ed8' : '#94a3b8'
+  // 270° clockwise arc: start at top (11,4.5), end at left (4.5,11)
+  // center (11,11), r=6.5 — large-arc=1, sweep=1 (clockwise)
+  // Tangent at left point is straight down → arrowhead opens upward
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      {/* arc ~270°, leaving a gap at top-right for the arrowhead */}
       <path
-        d="M 11 4 A 7 7 0 1 0 17.5 14"
+        d="M 11 4.5 A 6.5 6.5 0 1 1 4.5 11"
         stroke={c} strokeWidth="2" strokeLinecap="round" fill="none"
       />
-      {/* arrowhead at the end of the arc */}
-      <polyline points="14,10 17.5,14 13.5,15.5" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      {/* arrowhead at (4.5,11) pointing downward (clockwise tangent) */}
+      <polyline points="2.5,9 4.5,11 6.5,9" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   )
 }
