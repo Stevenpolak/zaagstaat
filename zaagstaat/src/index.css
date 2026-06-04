@@ -1,6 +1,31 @@
 @import "tailwindcss";
 
 @media print {
+  /* Hide all UI chrome */
   .no-print { display: none !important; }
-  body { background: white; }
+
+  /* Reset page margins */
+  @page { margin: 15mm 12mm; }
+
+  body { background: white !important; }
+
+  /* Each sheet section starts on a new page (except first) */
+  .print\:break-before-page { break-before: page; }
+
+  /* Keep diagram + table together, avoid orphaned headers */
+  section { break-inside: avoid; }
+
+  /* Remove rounded borders and shadows that don't print well */
+  svg { border-radius: 0 !important; }
+
+  /* Make SVG diagrams full width in print */
+  .lg\:w-\[58\%\] { width: 55% !important; }
+
+  /* Ensure table text is dark enough for print */
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #d1d5db; padding: 4px 8px; }
+  thead tr { background: #f3f4f6 !important; }
+
+  /* Stat boxes */
+  .bg-slate-50 { background: white !important; border: 1px solid #e5e7eb !important; }
 }

@@ -19,11 +19,14 @@ export function ResultsView() {
   const partColorMap: Record<string, string> = {}
   parts.forEach((p, i) => { partColorMap[p.id] = COLORS[i % COLORS.length] })
 
+  // Track global sequence counter (continues across sheets for easy reference)
+  let globalSeq = 1
+
   return (
-    <div className="p-4 md:p-6 space-y-8">
+    <div className="p-4 md:p-6">
 
       {/* ── Summary bar ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 print-summary">
         <Stat label="Platen gebruikt"  value={sheetsUsed.length.toString()} />
         <Stat label="Benutting"        value={`${100 - wastePercent}%`} />
         <Stat label="Uitval"           value={`${(wasteArea / 1e6).toFixed(2)} m²`}
@@ -32,7 +35,7 @@ export function ResultsView() {
       </div>
 
       {/* Sheets per stock */}
-      <div className="flex flex-wrap gap-2 -mt-4">
+      <div className="flex flex-wrap gap-2 mb-6">
         {Object.entries(sheetsUsedPerStock).map(([label, count]) => (
           <span key={label} className="bg-blue-50 text-blue-700 rounded-full px-3 py-0.5 text-xs font-medium">
             {label}: {count} {count === 1 ? 'plaat' : 'platen'}
@@ -42,8 +45,8 @@ export function ResultsView() {
 
       {/* Unplaced warnings */}
       {unplacedPartIds.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-red-700 text-sm font-semibold mb-1">Onderdelen die niet passen:</p>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <p className="text-red-700 text-sm font-semibold mb-1">⚠ Onderdelen die niet passen:</p>
           <ul className="text-red-600 text-sm list-disc list-inside">
             {unplacedPartIds.map(id => {
               const p = parts.find(p => p.id === id)
@@ -59,18 +62,27 @@ export function ResultsView() {
         if (!stock) return null
 
         const sheetPlacements = placements.filter(p => p.sheetIndex === idx)
+        const sheetStartSeq = globalSeq
+        globalSeq += sheetPlacements.length
 
         return (
-          <section key={idx} className="break-inside-avoid">
-            <h2 className="text-sm font-semibold text-slate-600 mb-3">
+          <section
+            key={idx}
+            className={idx === 0 ? 'mb-10' : 'mb-10 print:break-before-page'}
+          >
+            {/* Sheet heading */}
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 pb-1 border-b border-slate-200">
               {stock.label} — plaat {sheet.sheetNumber}
+              <span className="ml-2 text-slate-400 font-normal normal-case tracking-normal">
+                {stock.width} × {stock.height} mm
+              </span>
             </h2>
 
             {/* Diagram + table side by side */}
-            <div className="flex flex-col lg:flex-row gap-4 items-start">
+            <div className="flex flex-col lg:flex-row gap-5 items-start">
 
-              {/* SVG diagram — takes up ~55% on wide screens */}
-              <div className="w-full lg:w-[55%] flex-shrink-0">
+              {/* SVG diagram */}
+              <div className="w-full lg:w-[58%] flex-shrink-0">
                 <SheetDiagram
                   sheetIdx={idx}
                   sheet={sheet}
@@ -79,19 +91,20 @@ export function ResultsView() {
                   parts={parts}
                   settings={settings}
                   partColorMap={partColorMap}
+                  startSeq={sheetStartSeq}
                 />
               </div>
 
               {/* Per-sheet cut table */}
-              <div className="w-full lg:flex-1 overflow-x-auto">
+              <div className="w-full lg:flex-1">
                 <table className="w-full text-sm border border-slate-200 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-50">
-                    <tr className="text-left text-slate-500 text-xs">
-                      <th className="px-3 py-2 font-medium">#</th>
-                      <th className="px-3 py-2 font-medium">Onderdeel</th>
-                      <th className="px-3 py-2 font-medium">Netto</th>
+                  <thead>
+                    <tr className="bg-slate-100 text-left text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="px-3 py-2 font-semibold w-8">#</th>
+                      <th className="px-3 py-2 font-semibold">Onderdeel</th>
+                      <th className="px-3 py-2 font-semibold">Netto (mm)</th>
                       {settings.brutomaten &&
-                        <th className="px-3 py-2 font-medium">Bruto</th>}
+                        <th className="px-3 py-2 font-semibold">Bruto — zagen op</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -100,21 +113,24 @@ export function ResultsView() {
                       const color = partColorMap[pl.partId] ?? COLORS[i % COLORS.length]
                       const netW = part ? (pl.rotated ? part.height : part.width)  : pl.width
                       const netH = part ? (pl.rotated ? part.width  : part.height) : pl.height
+                      const seq = sheetStartSeq + i
+
                       return (
-                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                          <td className="px-3 py-2">
-                            {/* color swatch */}
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                          {/* Seq badge matching diagram */}
+                          <td className="px-3 py-2.5">
                             <span
-                              className="inline-block w-3 h-3 rounded-sm mr-1 align-middle"
-                              style={{ background: color, opacity: 0.8 }}
-                            />
-                            <span className="text-slate-400 text-xs">{i + 1}</span>
+                              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
+                              style={{ background: color }}
+                            >
+                              {seq}
+                            </span>
                           </td>
-                          <td className="px-3 py-2 font-medium text-slate-800">{part?.label ?? '?'}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-slate-600">{netW}×{netH}</td>
+                          <td className="px-3 py-2.5 font-semibold text-slate-800">{part?.label ?? '?'}</td>
+                          <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{netW}×{netH}</td>
                           {settings.brutomaten && (
-                            <td className="px-3 py-2 font-mono text-xs font-semibold text-slate-800">
-                              {pl.width}×{pl.height}
+                            <td className="px-3 py-2.5">
+                              <span className="font-mono text-sm font-bold text-slate-800">{pl.width}×{pl.height}</span>
                             </td>
                           )}
                         </tr>
@@ -128,9 +144,9 @@ export function ResultsView() {
         )
       })}
 
-      {/* PDF footer — only in print */}
-      <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400">
-        Code: <strong>{sessionCode}</strong> — geldig tot {formatExpiry(expiresAt)}
+      {/* PDF footer — only in print, repeated on every page via position */}
+      <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs text-slate-400 border-t border-slate-200 pt-2">
+        Zaagstaat — Code: <strong>{sessionCode}</strong> — geldig tot {formatExpiry(expiresAt)}
       </div>
     </div>
   )
@@ -138,9 +154,9 @@ export function ResultsView() {
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="bg-slate-50 rounded-xl p-3 text-center">
+    <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
       <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-      <p className={`text-lg font-bold ${color ?? 'text-slate-800'}`}>{value}</p>
+      <p className={`text-xl font-bold ${color ?? 'text-slate-800'}`}>{value}</p>
     </div>
   )
 }
