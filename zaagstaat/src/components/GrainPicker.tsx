@@ -35,8 +35,8 @@ function IconRotate({ active }: { active: boolean }) {
         d="M 11 4.5 A 6.5 6.5 0 1 1 4.5 11"
         stroke={c} strokeWidth="2" strokeLinecap="round" fill="none"
       />
-      {/* arrowhead at (4.5,11) pointing downward (clockwise tangent) */}
-      <polyline points="2.5,9 4.5,11 6.5,9" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      {/* arrowhead at (4.5,11) pointing upward (clockwise tangent: arrives from below) */}
+      <polyline points="2.5,13 4.5,11 6.5,13" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   )
 }
