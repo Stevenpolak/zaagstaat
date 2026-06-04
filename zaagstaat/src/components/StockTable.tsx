@@ -57,6 +57,7 @@ export function StockTable() {
                   <GrainPicker
                     value={p.grainDirection}
                     onChange={v => updateStock(p.id, { grainDirection: v })}
+                    noneIcon="prohibited"
                   />
                 </td>
                 <td className="py-1">
