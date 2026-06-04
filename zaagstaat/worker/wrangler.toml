@@ -16,4 +16,4 @@ id = "4cd7c223a5154d7cbe6a23abda43c30b"
 
 [vars]
 # Restrict CORS to your deployed frontend. Use "*" during development.
-ALLOWED_ORIGIN = "*"
+ALLOWED_ORIGIN = "https://zaagstaat.studiokroos.nl"
