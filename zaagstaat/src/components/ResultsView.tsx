@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useProjectStore } from '../store/useProjectStore'
 import { SheetDiagram, COLORS } from './SheetDiagram'
 import { formatExpiry } from '../lib/session'
@@ -18,6 +19,14 @@ export function ResultsView() {
   // Stable color map per part id
   const partColorMap: Record<string, string> = {}
   parts.forEach((p, i) => { partColorMap[p.id] = COLORS[i % COLORS.length] })
+
+  // Timestamp captured once when results are shown
+  const printTimestamp = useMemo(() => {
+    const now = new Date()
+    const datum = now.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const tijd = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    return `${datum} om ${tijd}`
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track global sequence counter (continues across sheets for easy reference)
   let globalSeq = 1
@@ -145,8 +154,9 @@ export function ResultsView() {
       })}
 
       {/* PDF footer — only in print, repeated on every page via position */}
-      <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs text-slate-400 border-t border-slate-200 pt-2">
-        Zaagstaat — Code: <strong>{sessionCode}</strong> — geldig tot {formatExpiry(expiresAt)}
+      <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs text-slate-400 border-t border-slate-200 pt-2 bg-white">
+        Gegenereerd op {printTimestamp} met behulp van Zaagstaat —
+        code: <strong>{sessionCode}</strong>, geldig tot {formatExpiry(expiresAt)}
       </div>
     </div>
   )
