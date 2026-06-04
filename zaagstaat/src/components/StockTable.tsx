@@ -33,7 +33,7 @@ export function StockTable() {
                   <input
                     className="w-full border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                     value={p.label}
-                    placeholder="bijv. Birkenmultiplex 18mm"
+                    placeholder="bijv. Berkenplex 18mm"
                     onChange={e => updateStock(p.id, { label: e.target.value })}
                   />
                 </td>
