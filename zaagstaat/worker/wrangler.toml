@@ -1,0 +1,19 @@
+name = "zaagstaat-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace — create with:
+#   wrangler kv namespace create PROJECTS
+# then paste the resulting id below.
+[[kv_namespaces]]
+binding = "PROJECTS"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# For local dev, Wrangler uses a local KV store automatically.
+# preview_id is optional (used in wrangler dev --remote)
+# preview_id = "REPLACE_WITH_PREVIEW_ID"
+
+[vars]
+# Restrict CORS to your deployed frontend. Use "*" during development.
+ALLOWED_ORIGIN = "*"
