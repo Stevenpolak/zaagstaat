@@ -3,9 +3,9 @@ import type { Part, Project, Settings, StockPanel, OptimizationResult } from '..
 import { generateCode, expiryDate, saveProject } from '../lib/session'
 
 const DEFAULT_SETTINGS: Settings = {
-  kerf: 3.2,
+  kerf: 4,
   schoonzagen: true,
-  schoonzagenMaat: 10,
+  schoonzagenMaat: 5,
   brutomaten: true,
   overmaat: 5,
   optimizationGoal: 'minimize-waste',
