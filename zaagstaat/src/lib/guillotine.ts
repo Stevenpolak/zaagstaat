@@ -1,5 +1,8 @@
 import type { Part, PlacedPart, Settings, SheetUsed, StockPanel, OptimizationResult } from './types'
 
+/** Round to 1 decimal place to eliminate floating-point noise */
+const round = (n: number) => Math.round(n * 10) / 10
+
 interface Rect { x: number; y: number; w: number; h: number }
 
 function guillotinePack(items: { w: number; h: number }[], binW: number, binH: number): { x: number; y: number; w: number; h: number; rotated: boolean }[] {
@@ -56,8 +59,8 @@ export function optimize(
   // Expand parts by qty
   const expanded: { part: Part; bw: number; bh: number }[] = []
   for (const part of allParts) {
-    const bw = brutomaten ? part.width + overmaat * 2 : part.width
-    const bh = brutomaten ? part.height + overmaat * 2 : part.height
+    const bw = round(brutomaten ? part.width + overmaat * 2 : part.width)
+    const bh = round(brutomaten ? part.height + overmaat * 2 : part.height)
     for (let i = 0; i < part.qty; i++) expanded.push({ part, bw, bh })
   }
 
@@ -129,8 +132,8 @@ export function optimize(
           continue
         }
 
-        const placedW = r.w - kerf
-        const placedH = r.h - kerf
+        const placedW = round(r.w - kerf)
+        const placedH = round(r.h - kerf)
         placements.push({
           partId: e.part.id,
           sheetIndex: sheetIdx,
