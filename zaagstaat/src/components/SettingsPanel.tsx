@@ -40,7 +40,7 @@ export function SettingsPanel() {
               <NumberInput
                 value={settings.overmaat}
                 onChange={v => updateSettings({ overmaat: v })}
-                suffix="mm p/k"
+                suffix="mm rondom"
               />
             )}
           </div>
