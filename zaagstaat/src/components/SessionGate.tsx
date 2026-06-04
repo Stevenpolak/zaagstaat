@@ -3,11 +3,16 @@ import { loadProject } from '../lib/session'
 import { useProjectStore } from '../store/useProjectStore'
 import type { Project } from '../lib/types'
 
-export function SessionGate({ onDone }: { onDone: () => void }) {
+interface Props {
+  onDone: () => void
+  initialError?: string
+}
+
+export function SessionGate({ onDone, initialError = '' }: Props) {
   const startNew = useProjectStore(s => s.startNew)
   const loadFromRemote = useProjectStore(s => s.loadFromRemote)
   const [code, setCode] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(initialError)
   const [loading, setLoading] = useState(false)
 
   function handleNew() {
@@ -23,6 +28,8 @@ export function SessionGate({ onDone }: { onDone: () => void }) {
     try {
       const data = await loadProject(trimmed)
       loadFromRemote(data as Project)
+      // Push the code into the URL so it's bookmarkable
+      window.history.pushState(null, '', `/${trimmed}`)
       onDone()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Onbekende fout')
@@ -64,7 +71,7 @@ export function SessionGate({ onDone }: { onDone: () => void }) {
             disabled={loading}
             className="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-5 rounded-xl transition-colors disabled:opacity-50"
           >
-            {loading ? '...' : 'Laden'}
+            {loading ? '…' : 'Laden'}
           </button>
         </div>
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
