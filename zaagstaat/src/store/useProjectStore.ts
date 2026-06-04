@@ -67,9 +67,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     get().scheduleSave()
   },
   updateStock(id, patch) {
-    set(s => ({
-      stockPanels: s.stockPanels.map(p => p.id === id ? { ...p, ...patch } : p),
-    }))
+    set(s => {
+      const updated = s.stockPanels.map(p => p.id === id ? { ...p, ...patch } : p)
+      // If grain direction changed, cascade to all parts using this material
+      if ('grainDirection' in patch) {
+        const stock = updated.find(p => p.id === id)
+        if (stock) {
+          const newGrain = stock.grainDirection
+          return {
+            stockPanels: updated,
+            parts: s.parts.map(p =>
+              p.material === stock.label
+                ? { ...p, grainDirection: newGrain === 'geen' ? 'geen' : newGrain }
+                : p
+            ),
+          }
+        }
+      }
+      return { stockPanels: updated }
+    })
     get().scheduleSave()
   },
   removeStock(id) {
