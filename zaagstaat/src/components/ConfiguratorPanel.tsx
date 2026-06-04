@@ -24,7 +24,7 @@ export function ConfiguratorPanel({ open, onClose, canCalculate, calculating, va
 
       {/* Slide-over panel */}
       <div
-        className={`fixed top-0 left-0 h-full w-full max-w-lg bg-white shadow-2xl z-30 flex flex-col
+        className={`fixed top-0 left-0 h-full w-full max-w-[90vw] bg-white shadow-2xl z-30 flex flex-col
           transform transition-transform duration-300 ease-in-out no-print ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
