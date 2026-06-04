@@ -12,6 +12,20 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [calculating, setCalculating] = useState(false)
   const { parts, stockPanels, settings, setResult, startNew } = useProjectStore()
+
+  const stockValid = stockPanels.length > 0 &&
+    stockPanels.every(s => s.label.trim() && s.width > 0 && s.height > 0)
+
+  const partsValid = parts.length > 0 &&
+    parts.every(p => p.label.trim() && p.width > 0 && p.height > 0 && p.qty > 0)
+
+  const canCalculate = !calculating && stockValid && partsValid
+
+  const validationMessage = !stockValid
+    ? 'Voeg minstens één geldige plaat toe (label + afmetingen).'
+    : !partsValid
+    ? 'Vul alle onderdelen volledig in (label, lengte, breedte, aantal).'
+    : null
   const workerRef = useRef<Worker | null>(null)
 
   function handleNewProject() {
@@ -60,11 +74,14 @@ export default function App() {
 
           <button
             onClick={calculate}
-            disabled={calculating || parts.length === 0 || stockPanels.length === 0}
-            className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors"
+            disabled={!canCalculate}
+            className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
           >
             {calculating ? 'Berekenen...' : 'Berekenen'}
           </button>
+          {validationMessage && (
+            <p className="text-xs text-orange-600 text-center -mt-2">{validationMessage}</p>
+          )}
 
           <button
             onClick={() => window.print()}

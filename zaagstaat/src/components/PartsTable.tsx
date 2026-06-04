@@ -56,7 +56,9 @@ export function PartsTable() {
                 <td className="py-1 pr-2">
                   <input
                     type="number" min={1}
-                    className="w-20 border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className={`w-20 border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      !p.width ? 'border-orange-300 bg-orange-50' : 'border-slate-200'
+                    }`}
                     value={p.width || ''}
                     onChange={e => updatePart(p.id, { width: +e.target.value })}
                   />
@@ -64,7 +66,9 @@ export function PartsTable() {
                 <td className="py-1 pr-2">
                   <input
                     type="number" min={1}
-                    className="w-20 border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className={`w-20 border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      !p.height ? 'border-orange-300 bg-orange-50' : 'border-slate-200'
+                    }`}
                     value={p.height || ''}
                     onChange={e => updatePart(p.id, { height: +e.target.value })}
                   />
@@ -72,9 +76,11 @@ export function PartsTable() {
                 <td className="py-1 pr-2">
                   <input
                     type="number" min={1}
-                    className="w-14 border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    value={p.qty}
-                    onChange={e => updatePart(p.id, { qty: Math.max(1, +e.target.value) })}
+                    className={`w-14 border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      !p.qty ? 'border-orange-300 bg-orange-50' : 'border-slate-200'
+                    }`}
+                    value={p.qty || ''}
+                    onChange={e => updatePart(p.id, { qty: e.target.value === '' ? 0 : +e.target.value })}
                   />
                 </td>
                 <td className="py-1 pr-2">
