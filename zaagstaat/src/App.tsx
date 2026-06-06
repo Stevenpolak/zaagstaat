@@ -17,6 +17,15 @@ const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 
 // Valid session code: 5 chars from our unambiguous alphabet
 const CODE_RE = /^[ACDEFGHJKLMNPQRTUVWXY3467]{5}$/i
 
+function updateOgUrl(url: string) {
+  document.querySelector('meta[property="og:url"]')?.setAttribute('content', url)
+}
+
+function updateTitle(projectName: string | null, sessionCode: string | null) {
+  const suffix = projectName || (sessionCode ? `Project ${sessionCode}` : 'Nieuw project')
+  document.title = `Zaagstaat | ${suffix}`
+}
+
 function codeFromUrl(): string | null {
   const seg = window.location.pathname.replace(/^\//, '').toUpperCase()
   return CODE_RE.test(seg) ? seg : null
@@ -46,9 +55,19 @@ export default function App() {
         setAutoLoadError(err instanceof Error ? err.message : 'Laden mislukt.')
         // Clear the bad code from URL so the gate shows cleanly
         window.history.replaceState(null, '', '/')
+        updateOgUrl(window.location.href)
       })
       .finally(() => setAutoLoading(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Keep tab title in sync ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!ready) {
+      document.title = 'Zaagstaat'
+      return
+    }
+    updateTitle(projectName ?? null, sessionCode ?? null)
+  }, [ready, projectName, sessionCode])
 
   // ── Keep URL in sync with active session code ──────────────────────────────
   useEffect(() => {
@@ -56,6 +75,7 @@ export default function App() {
     const current = window.location.pathname.replace(/^\//, '').toUpperCase()
     if (current !== sessionCode) {
       window.history.replaceState(null, '', `/${sessionCode}`)
+      updateOgUrl(window.location.href)
     }
   }, [ready, sessionCode])
 
@@ -95,6 +115,7 @@ export default function App() {
     setSlideOpen(false)
     setShowNameModal(false)
     window.history.replaceState(null, '', '/')
+    updateOgUrl(window.location.href)
   }
 
   function handleSessionDone(isNew = false) {
@@ -194,8 +215,20 @@ export default function App() {
           Invoer bewerken
         </button>
         <div className="flex-1" />
-        {canShare ? (
-          // Mobile: native share sheet
+        {/* Desktop: print + share side by side */}
+        <button
+          onClick={() => window.print()}
+          className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="3" y="6" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M5 6V3h6v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <rect x="5" y="9" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.4"/>
+          </svg>
+          Afdrukken
+        </button>
+        {/* Share: always shown on mobile, also on desktop if supported */}
+        {canShare && (
           <button
             onClick={() => navigator.share({ title: `Zaagstaat — ${projectName || sessionCode}`, text: 'Bekijk mijn zaagproject', url: window.location.href })}
             className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
@@ -205,19 +238,6 @@ export default function App() {
               <path d="M4 9v4h8V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Delen
-          </button>
-        ) : (
-          // Desktop: print
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="3" y="6" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M5 6V3h6v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <rect x="5" y="9" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.4"/>
-            </svg>
-            Afdrukken
           </button>
         )}
       </div>

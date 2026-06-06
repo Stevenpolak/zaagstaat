@@ -155,11 +155,17 @@ export function ResultsView() {
         )
       })}
 
-      {/* Contact link — screen only */}
+      {/* Contact link — screen only, mailto assembled on click to avoid scraping */}
       <div className="no-print text-center pt-6 pb-2">
         <a
-          href={`mailto:steven@studiokroos.nl?subject=Zaagstaat%20feedback&body=Code%3A%20${sessionCode}%0A%0ABeschrijving%3A%20`}
+          href="#"
           className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          onClick={e => {
+            e.preventDefault()
+            const u = ['steven', 'studiokroos.nl'].join('@')
+            const body = `Code%3A%20${sessionCode}%0A%0ABeschrijving%3A%20`
+            window.location.href = `mailto:${u}?subject=Zaagstaat%20feedback&body=${body}`
+          }}
         >
           Fout gevonden of vraag? Stuur een berichtje →
         </a>
