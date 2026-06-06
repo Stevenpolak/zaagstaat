@@ -3,7 +3,7 @@ import { useProjectStore } from '../store/useProjectStore'
 import { formatExpiry } from '../lib/session'
 
 export function Header({ onNewProject }: { onNewProject: () => void }) {
-  const { sessionCode, expiresAt } = useProjectStore()
+  const { sessionCode, expiresAt, projectName } = useProjectStore()
   const [copied, setCopied] = useState(false)
 
   function copyCode() {
@@ -14,9 +14,14 @@ export function Header({ onNewProject }: { onNewProject: () => void }) {
 
   return (
     <header className="no-print bg-blue-800 text-white px-4 py-3 flex items-center justify-between gap-4">
-      <h1 className="text-xl font-bold tracking-tight">Zaagstaat</h1>
+      <div className="flex items-center gap-3 min-w-0">
+        <h1 className="text-xl font-bold tracking-tight flex-shrink-0">Zaagstaat</h1>
+        {projectName && (
+          <span className="text-blue-200 text-sm truncate hidden sm:block">— {projectName}</span>
+        )}
+      </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-shrink-0">
         <div className="flex items-center gap-2 bg-blue-900/60 rounded-lg px-3 py-1.5">
           <span className="text-blue-200 text-xs hidden sm:block">Code:</span>
           <span className="font-mono font-bold tracking-widest text-white text-sm">{sessionCode}</span>

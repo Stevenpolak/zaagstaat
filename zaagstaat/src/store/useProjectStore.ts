@@ -15,6 +15,7 @@ function newProject(): Project {
   return {
     sessionCode: generateCode(),
     expiresAt: expiryDate(),
+    projectName: '',
     stockPanels: [],
     parts: [],
     settings: { ...DEFAULT_SETTINGS },
@@ -26,6 +27,7 @@ interface ProjectStore extends Project {
   // session
   startNew: () => void
   loadFromRemote: (data: Project) => void
+  updateProjectName: (name: string) => void
 
   // stock
   addStock: (panel: StockPanel) => void
@@ -62,29 +64,42 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ ...data })
   },
 
+  updateProjectName(name) {
+    set({ projectName: name })
+    get().scheduleSave()
+  },
+
   addStock(panel) {
     set(s => ({ stockPanels: [...s.stockPanels, panel] }))
     get().scheduleSave()
   },
   updateStock(id, patch) {
     set(s => {
+      const oldStock = s.stockPanels.find(p => p.id === id)
       const updated = s.stockPanels.map(p => p.id === id ? { ...p, ...patch } : p)
-      // If grain direction changed, cascade to all parts using this material
+      let updatedParts = s.parts
+
+      // Cascade label change → update material references in all parts
+      if ('label' in patch && oldStock && patch.label !== oldStock.label) {
+        updatedParts = updatedParts.map(p =>
+          p.material === oldStock.label ? { ...p, material: patch.label! } : p
+        )
+      }
+
+      // Cascade grain direction change → update grain in all parts using this material
       if ('grainDirection' in patch) {
         const stock = updated.find(p => p.id === id)
         if (stock) {
           const newGrain = stock.grainDirection
-          return {
-            stockPanels: updated,
-            parts: s.parts.map(p =>
-              p.material === stock.label
-                ? { ...p, grainDirection: newGrain === 'geen' ? 'geen' : newGrain }
-                : p
-            ),
-          }
+          updatedParts = updatedParts.map(p =>
+            p.material === stock.label
+              ? { ...p, grainDirection: newGrain === 'geen' ? 'geen' : newGrain }
+              : p
+          )
         }
       }
-      return { stockPanels: updated }
+
+      return { stockPanels: updated, parts: updatedParts }
     })
     get().scheduleSave()
   },
@@ -126,6 +141,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         await saveProject(s.sessionCode, {
           sessionCode: s.sessionCode,
           expiresAt: s.expiresAt,
+          projectName: s.projectName,
           stockPanels: s.stockPanels,
           parts: s.parts,
           settings: s.settings,

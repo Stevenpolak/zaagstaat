@@ -1,4 +1,4 @@
-import type { Part, PlacedPart, Settings, SheetUsed, StockPanel } from '../lib/types'
+import type { CutLine, Part, PlacedPart, Settings, SheetUsed, StockPanel } from '../lib/types'
 
 export const COLORS = [
   '#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6',
@@ -15,9 +15,11 @@ interface Props {
   partColorMap: Record<string, string>
   /** Sequence number of the first placement on this sheet (for cross-referencing) */
   startSeq?: number
+  cutLines?: CutLine[]
+  kerf?: number
 }
 
-export function SheetDiagram({ sheetIdx, stock, placements, parts, settings, partColorMap, startSeq = 1 }: Props) {
+export function SheetDiagram({ sheetIdx, stock, placements, parts, settings, partColorMap, startSeq = 1, cutLines = [], kerf = 4 }: Props) {
   const border = settings.schoonzagen ? settings.schoonzagenMaat : 0
   const myPlacements = placements.filter(p => p.sheetIndex === sheetIdx)
   const vbW = stock.width
@@ -70,6 +72,22 @@ export function SheetDiagram({ sheetIdx, stock, placements, parts, settings, par
           fill="none" stroke="#94a3b8" strokeWidth={4} strokeDasharray="18 10"
         />
       )}
+
+      {/* Cut lines — red kerf-wide bars showing where the saw runs */}
+      {cutLines
+        .filter(c => c.sheetIndex === sheetIdx)
+        .map((c, i) =>
+          c.orientation === 'vertical'
+            ? <rect key={`cut-${i}`}
+                x={c.position - kerf / 2} y={c.from}
+                width={kerf} height={c.to - c.from}
+                fill="#ef4444" fillOpacity={0.7} />
+            : <rect key={`cut-${i}`}
+                x={c.from} y={c.position - kerf / 2}
+                width={c.to - c.from} height={kerf}
+                fill="#ef4444" fillOpacity={0.7} />
+        )
+      }
 
       {/* Placed parts */}
       {myPlacements.map((pl, i) => {

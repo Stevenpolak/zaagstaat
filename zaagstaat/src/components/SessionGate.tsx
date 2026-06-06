@@ -4,7 +4,7 @@ import { useProjectStore } from '../store/useProjectStore'
 import type { Project } from '../lib/types'
 
 interface Props {
-  onDone: () => void
+  onDone: (isNew?: boolean) => void
   initialError?: string
 }
 
@@ -17,7 +17,7 @@ export function SessionGate({ onDone, initialError = '' }: Props) {
 
   function handleNew() {
     startNew()
-    onDone()
+    onDone(true)  // isNew = true → show name modal
   }
 
   async function handleLoad() {
@@ -28,9 +28,8 @@ export function SessionGate({ onDone, initialError = '' }: Props) {
     try {
       const data = await loadProject(trimmed)
       loadFromRemote(data as Project)
-      // Push the code into the URL so it's bookmarkable
       window.history.pushState(null, '', `/${trimmed}`)
-      onDone()
+      onDone(false)  // isNew = false → no name modal
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Onbekende fout')
     } finally {

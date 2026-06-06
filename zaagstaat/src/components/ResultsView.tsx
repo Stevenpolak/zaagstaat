@@ -14,7 +14,7 @@ export function ResultsView() {
     )
   }
 
-  const { placements, sheetsUsed, sheetsUsedPerStock, wastePercent, wasteArea, usedArea, unplacedPartIds } = lastResult
+  const { placements, sheetsUsed, sheetsUsedPerStock, wastePercent, wasteArea, usedArea, unplacedPartIds, cutLines } = lastResult
 
   // Stable color map per part id
   const partColorMap: Record<string, string> = {}
@@ -101,6 +101,8 @@ export function ResultsView() {
                   settings={settings}
                   partColorMap={partColorMap}
                   startSeq={sheetStartSeq}
+                  cutLines={cutLines}
+                  kerf={settings.kerf}
                 />
               </div>
 

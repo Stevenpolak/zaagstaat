@@ -6,6 +6,7 @@ import { PartsTable } from './components/PartsTable'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ResultsView } from './components/ResultsView'
 import { ConfiguratorPanel } from './components/ConfiguratorPanel'
+import { NewProjectModal } from './components/NewProjectModal'
 import { useProjectStore } from './store/useProjectStore'
 import { loadProject } from './lib/session'
 import type { OptimizationResult, Project } from './lib/types'
@@ -20,6 +21,7 @@ function codeFromUrl(): string | null {
 
 export default function App() {
   const [ready, setReady] = useState(false)
+  const [showNameModal, setShowNameModal] = useState(false)
   const [calculating, setCalculating] = useState(false)
   const [slideOpen, setSlideOpen] = useState(false)
   const [autoLoading, setAutoLoading] = useState(false)
@@ -35,7 +37,7 @@ export default function App() {
     loadProject(code)
       .then(data => {
         loadFromRemote(data as Project)
-        setReady(true)
+        setReady(true)  // loaded project — no name modal
       })
       .catch(err => {
         setAutoLoadError(err instanceof Error ? err.message : 'Laden mislukt.')
@@ -70,12 +72,15 @@ export default function App() {
     startNew()
     setReady(false)
     setSlideOpen(false)
+    setShowNameModal(false)
     window.history.replaceState(null, '', '/')
   }
 
-  function handleSessionDone() {
+  function handleSessionDone(isNew = false) {
+    if (isNew) {
+      setShowNameModal(true)
+    }
     setReady(true)
-    // URL will sync via the useEffect above
   }
 
   function calculate() {
@@ -96,6 +101,11 @@ export default function App() {
       worker.terminate()
     }
     worker.postMessage({ parts, stockPanels, settings })
+  }
+
+  // ── Name modal (overlays everything after new project) ────────────────────
+  if (showNameModal) {
+    return <NewProjectModal onDone={() => setShowNameModal(false)} />
   }
 
   // ── Auto-loading splash ────────────────────────────────────────────────────

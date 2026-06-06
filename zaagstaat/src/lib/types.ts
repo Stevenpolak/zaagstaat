@@ -43,6 +43,14 @@ export interface SheetUsed {
   sheetNumber: number  // 1-based, per stock type
 }
 
+export interface CutLine {
+  sheetIndex: number
+  orientation: 'horizontal' | 'vertical'
+  position: number  // mm along the cutting axis (incl. schoonzagen offset)
+  from: number      // start along the other axis
+  to: number        // end along the other axis
+}
+
 export interface OptimizationResult {
   placements: PlacedPart[]
   sheetsUsed: SheetUsed[]
@@ -52,11 +60,13 @@ export interface OptimizationResult {
   wasteArea: number    // mm²
   wastePercent: number
   unplacedPartIds: string[]
+  cutLines: CutLine[]
 }
 
 export interface Project {
   sessionCode: string
   expiresAt: string   // ISO date string
+  projectName: string
   stockPanels: StockPanel[]
   parts: Part[]
   settings: Settings

@@ -1,20 +1,28 @@
-import type { Part, PlacedPart, Settings, SheetUsed, StockPanel, OptimizationResult } from './types'
+import type { CutLine, Part, PlacedPart, Settings, SheetUsed, StockPanel, OptimizationResult } from './types'
 
 /** Round to 1 decimal place to eliminate floating-point noise */
 const round = (n: number) => Math.round(n * 10) / 10
 
 interface Rect { x: number; y: number; w: number; h: number }
 
+interface PackResult {
+  placements: { x: number; y: number; w: number; h: number; rotated: boolean }[]
+  /** Raw cut lines in usable-area coordinates (before schoonzagen offset) */
+  cuts: { orientation: 'horizontal' | 'vertical'; position: number; from: number; to: number }[]
+}
+
 /**
  * Guillotine bin-packing.
  * canRotate per item: if false the packer only tries the given orientation.
+ * Records every guillotine split as a cut line.
  */
 function guillotinePack(
   items: { w: number; h: number; canRotate: boolean }[],
   binW: number,
   binH: number,
-): { x: number; y: number; w: number; h: number; rotated: boolean }[] {
-  const placed: { x: number; y: number; w: number; h: number; rotated: boolean }[] = []
+): PackResult {
+  const placed: PackResult['placements'] = []
+  const cuts: PackResult['cuts'] = []
   let spaces: Rect[] = [{ x: 0, y: 0, w: binW, h: binH }]
 
   for (const item of items) {
@@ -35,7 +43,7 @@ function guillotinePack(
     }
 
     if (best === null) {
-      placed.push({ x: -1, y: -1, w: item.w, h: item.h, rotated: false }) // unplaced sentinel
+      placed.push({ x: -1, y: -1, w: item.w, h: item.h, rotated: false })
       continue
     }
 
@@ -44,24 +52,30 @@ function guillotinePack(
     const ph = best.rotated ? item.w : item.h
     placed.push({ x: sp.x, y: sp.y, w: pw, h: ph, rotated: best.rotated })
 
-    // Guillotine split
+    // Guillotine split — record the two resulting cut lines
     const rightW = sp.w - pw
     const bottomH = sp.h - ph
     spaces.splice(best.spaceIdx, 1)
-    if (rightW > 0) spaces.push({ x: sp.x + pw, y: sp.y, w: rightW, h: ph })
-    if (bottomH > 0) spaces.push({ x: sp.x, y: sp.y + ph, w: sp.w, h: bottomH })
+
+    if (rightW > 0) {
+      // Vertical cut at x = sp.x + pw, running from sp.y to sp.y + ph
+      cuts.push({ orientation: 'vertical', position: sp.x + pw, from: sp.y, to: sp.y + ph })
+      spaces.push({ x: sp.x + pw, y: sp.y, w: rightW, h: ph })
+    }
+    if (bottomH > 0) {
+      // Horizontal cut at y = sp.y + ph, running full width of sp
+      cuts.push({ orientation: 'horizontal', position: sp.y + ph, from: sp.x, to: sp.x + sp.w })
+      spaces.push({ x: sp.x, y: sp.y + ph, w: sp.w, h: bottomH })
+    }
+
     spaces.sort((a, b) => a.w * a.h - b.w * b.h)
   }
 
-  return placed
+  return { placements: placed, cuts }
 }
 
 /**
  * Determine if a part must be pre-rotated to align its grain with the sheet's grain.
- *
- * A sheet has a grain direction (e.g. verticaal = grain runs along the height axis).
- * A part has a required grain direction.
- * When they differ (and neither is 'geen'), the part must be rotated 90° before placing.
  */
 function needsGrainRotation(part: Part, stock: StockPanel): boolean {
   if (part.grainDirection === 'geen' || stock.grainDirection === 'geen') return false
@@ -77,6 +91,7 @@ export function optimize(
 
   const placements: PlacedPart[] = []
   const sheetsUsed: SheetUsed[] = []
+  const cutLines: CutLine[] = []
   const sheetsPerStock: Record<string, number> = {}
   const unplacedPartIds: string[] = []
   let totalArea = 0
@@ -119,12 +134,6 @@ export function optimize(
       sheetsUsed.push({ stockPanelId: stock.id, sheetNumber: sheetNum })
       totalArea += usableW * usableH
 
-      /**
-       * Build pack items with grain-aware orientation:
-       * - If part grain ≠ sheet grain → swap w/h (pre-rotate), canRotate = false
-       * - If part grain = sheet grain  → as-is,              canRotate = false
-       * - If part grain = 'geen'       → as-is,              canRotate = true
-       */
       const packItems = remaining.map(e => {
         const preRotate = needsGrainRotation(e.part, stock)
         const canRotate = e.part.grainDirection === 'geen'
@@ -133,7 +142,18 @@ export function optimize(
         return { w, h, canRotate, preRotate }
       })
 
-      const results = guillotinePack(packItems, usableW, usableH)
+      const { placements: results, cuts } = guillotinePack(packItems, usableW, usableH)
+
+      // Collect cut lines for this sheet (offset by schoonzagen border)
+      for (const cut of cuts) {
+        cutLines.push({
+          sheetIndex: sheetIdx,
+          orientation: cut.orientation,
+          position: round(border + cut.position),
+          from: round(border + cut.from),
+          to: round(border + cut.to),
+        })
+      }
 
       const nextRemaining: typeof remaining = []
       for (let i = 0; i < remaining.length; i++) {
@@ -148,9 +168,6 @@ export function optimize(
 
         const placedW = round(r.w - kerf)
         const placedH = round(r.h - kerf)
-
-        // `rotated` in PlacedPart = true if part is physically rotated vs its original dimensions
-        // This happens when pre-rotated for grain OR when packer chose to rotate a 'geen' part
         const rotated = preRotate !== r.rotated ? true : (preRotate || r.rotated)
 
         placements.push({
@@ -188,5 +205,6 @@ export function optimize(
     wasteArea,
     wastePercent,
     unplacedPartIds: [...new Set(unplacedPartIds)],
+    cutLines,
   }
 }
