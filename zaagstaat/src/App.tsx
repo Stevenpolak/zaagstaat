@@ -56,26 +56,34 @@ export default function App() {
     }
   }, [ready, sessionCode])
 
-  // Filter out completely empty draft rows (no dimensions entered)
-  const filledStock = stockPanels.filter(s => s.width > 0 && s.height > 0)
-  const filledParts = parts.filter(p => p.width > 0 && p.height > 0 && p.qty > 0)
+  // Draft = brand new row, nothing entered yet (both dimensions still zero)
+  // Active = user has started filling in → must be fully valid to calculate
+  const activeStock = stockPanels.filter(s => s.width > 0 || s.height > 0)
+  const activeParts = parts.filter(p => p.width > 0 || p.height > 0)
 
-  // Auto-label unnamed rows: "Plaat 1", "Onderdeel 1", etc.
-  const labeledStock = filledStock.map((s, i) => ({
-    ...s, label: s.label.trim() || `Plaat ${i + 1}`,
-  }))
-  const labeledParts = filledParts.map((p, i) => ({
-    ...p, label: p.label.trim() || `Onderdeel ${i + 1}`,
-  }))
+  // All active rows must be complete
+  const stockValid = activeStock.length > 0 &&
+    activeStock.every(s => s.width > 0 && s.height > 0)
+  const partsValid = activeParts.length > 0 &&
+    activeParts.every(p => p.width > 0 && p.height > 0 && p.qty > 0)
 
-  // Validation — label is no longer required
-  const stockValid = filledStock.length > 0
-  const partsValid = filledParts.length > 0
+  // Only send complete rows to the worker, with auto-labels
+  const labeledStock = activeStock
+    .filter(s => s.width > 0 && s.height > 0)
+    .map((s, i) => ({ ...s, label: s.label.trim() || `Plaat ${i + 1}` }))
+  const labeledParts = activeParts
+    .filter(p => p.width > 0 && p.height > 0 && p.qty > 0)
+    .map((p, i) => ({ ...p, label: p.label.trim() || `Onderdeel ${i + 1}` }))
+
   const canCalculate = !calculating && stockValid && partsValid
   const validationMessage = !stockValid
-    ? 'Voeg minstens één plaat toe met afmetingen.'
+    ? activeStock.length === 0
+      ? 'Voeg minstens één plaat toe met afmetingen.'
+      : 'Vul de afmetingen in van alle platen.'
     : !partsValid
-    ? 'Voeg minstens één onderdeel toe met afmetingen en aantal.'
+    ? activeParts.length === 0
+      ? 'Voeg minstens één onderdeel toe met afmetingen en aantal.'
+      : 'Vul alle velden in van elk onderdeel (lengte, breedte, aantal).'
     : null
 
   function handleNewProject() {
