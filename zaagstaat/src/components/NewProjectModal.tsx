@@ -26,6 +26,13 @@ export function NewProjectModal({ onDone }: Props) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6">
 
+        {/* Beta badge */}
+        <div className="text-center">
+          <span className="inline-block bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
+            Bèta — testversie
+          </span>
+        </div>
+
         {/* Code display — prominent */}
         <div className="text-center">
           <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Jouw projectcode</p>
@@ -43,7 +50,8 @@ export function NewProjectModal({ onDone }: Props) {
           </div>
           <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
             ⚠ Schrijf deze code op of bewaar hem.<br />
-            Hiermee laad je dit project terug op elk apparaat.
+            Hiermee laad je dit project terug op elk apparaat.<br />
+            <span className="text-amber-600 text-xs">Dit is een testversie — functies kunnen nog veranderen.</span>
           </div>
         </div>
 

@@ -7,9 +7,12 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { ResultsView } from './components/ResultsView'
 import { ConfiguratorPanel } from './components/ConfiguratorPanel'
 import { NewProjectModal } from './components/NewProjectModal'
+import { AppFooter } from './components/AppFooter'
 import { useProjectStore } from './store/useProjectStore'
 import { loadProject } from './lib/session'
 import type { OptimizationResult, Project } from './lib/types'
+
+const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
 // Valid session code: 5 chars from our unambiguous alphabet
 const CODE_RE = /^[ACDEFGHJKLMNPQRTUVWXY3467]{5}$/i
@@ -26,7 +29,7 @@ export default function App() {
   const [slideOpen, setSlideOpen] = useState(false)
   const [autoLoading, setAutoLoading] = useState(false)
   const [autoLoadError, setAutoLoadError] = useState('')
-  const { parts, stockPanels, settings, lastResult, setResult, startNew, loadFromRemote, sessionCode } = useProjectStore()
+  const { parts, stockPanels, settings, lastResult, setResult, startNew, loadFromRemote, sessionCode, projectName } = useProjectStore()
   const workerRef = useRef<Worker | null>(null)
 
   // ── Auto-load from URL on first mount ─────────────────────────────────────
@@ -169,6 +172,7 @@ export default function App() {
             </div>
           </div>
         </main>
+        <AppFooter />
       </div>
     )
   }
@@ -190,17 +194,32 @@ export default function App() {
           Invoer bewerken
         </button>
         <div className="flex-1" />
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="3" y="6" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M5 6V3h6v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <rect x="5" y="9" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.4"/>
-          </svg>
-          Afdrukken
-        </button>
+        {canShare ? (
+          // Mobile: native share sheet
+          <button
+            onClick={() => navigator.share({ title: `Zaagstaat — ${projectName || sessionCode}`, text: 'Bekijk mijn zaagproject', url: window.location.href })}
+            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M4 9v4h8V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Delen
+          </button>
+        ) : (
+          // Desktop: print
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="6" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M5 6V3h6v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <rect x="5" y="9" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.4"/>
+            </svg>
+            Afdrukken
+          </button>
+        )}
       </div>
 
       <main className="flex-1 overflow-y-auto">
@@ -208,6 +227,8 @@ export default function App() {
           <ResultsView />
         </div>
       </main>
+
+      <AppFooter />
 
       <ConfiguratorPanel
         open={slideOpen}

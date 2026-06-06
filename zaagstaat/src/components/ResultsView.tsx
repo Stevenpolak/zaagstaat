@@ -155,6 +155,16 @@ export function ResultsView() {
         )
       })}
 
+      {/* Contact link — screen only */}
+      <div className="no-print text-center pt-6 pb-2">
+        <a
+          href={`mailto:steven@studiokroos.nl?subject=Zaagstaat%20feedback&body=Code%3A%20${sessionCode}%0A%0ABeschrijving%3A%20`}
+          className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          Fout gevonden of vraag? Stuur een berichtje →
+        </a>
+      </div>
+
       {/* PDF footer — only in print, repeated on every page via position */}
       <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs text-slate-400 border-t border-slate-200 pt-2 bg-white">
         Gegenereerd op {printTimestamp} met behulp van Zaagstaat —
