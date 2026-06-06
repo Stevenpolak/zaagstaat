@@ -56,16 +56,26 @@ export default function App() {
     }
   }, [ready, sessionCode])
 
-  // Validation
-  const stockValid = stockPanels.length > 0 &&
-    stockPanels.every(s => s.label.trim() && s.width > 0 && s.height > 0)
-  const partsValid = parts.length > 0 &&
-    parts.every(p => p.label.trim() && p.width > 0 && p.height > 0 && p.qty > 0)
+  // Filter out completely empty draft rows (no dimensions entered)
+  const filledStock = stockPanels.filter(s => s.width > 0 && s.height > 0)
+  const filledParts = parts.filter(p => p.width > 0 && p.height > 0 && p.qty > 0)
+
+  // Auto-label unnamed rows: "Plaat 1", "Onderdeel 1", etc.
+  const labeledStock = filledStock.map((s, i) => ({
+    ...s, label: s.label.trim() || `Plaat ${i + 1}`,
+  }))
+  const labeledParts = filledParts.map((p, i) => ({
+    ...p, label: p.label.trim() || `Onderdeel ${i + 1}`,
+  }))
+
+  // Validation — label is no longer required
+  const stockValid = filledStock.length > 0
+  const partsValid = filledParts.length > 0
   const canCalculate = !calculating && stockValid && partsValid
   const validationMessage = !stockValid
-    ? 'Voeg minstens één geldige plaat toe (label + afmetingen).'
+    ? 'Voeg minstens één plaat toe met afmetingen.'
     : !partsValid
-    ? 'Vul alle onderdelen volledig in (label, lengte, breedte, aantal).'
+    ? 'Voeg minstens één onderdeel toe met afmetingen en aantal.'
     : null
 
   function handleNewProject() {
@@ -100,7 +110,7 @@ export default function App() {
       setCalculating(false)
       worker.terminate()
     }
-    worker.postMessage({ parts, stockPanels, settings })
+    worker.postMessage({ parts: labeledParts, stockPanels: labeledStock, settings })
   }
 
   // ── Name modal (overlays everything after new project) ────────────────────
