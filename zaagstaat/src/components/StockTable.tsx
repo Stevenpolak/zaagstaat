@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjectStore } from '../store/useProjectStore'
 import type { StockPanel } from '../lib/types'
 import { GrainPicker } from './GrainPicker'
@@ -9,14 +9,16 @@ function newPanel(): StockPanel {
 
 export function StockTable() {
   const { stockPanels, addStock, updateStock, removeStock } = useProjectStore()
-  const labelRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [focusId, setFocusId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (focusId && labelRefs.current[focusId]) {
-      labelRefs.current[focusId]?.focus()
-      setFocusId(null)
+    if (!focusId) return
+    // Find the visible label input (desktop table or mobile card — only one is visible at a time)
+    const inputs = document.querySelectorAll<HTMLInputElement>(`[data-label-id="${focusId}"]`)
+    for (const el of inputs) {
+      if (el.offsetParent !== null) { el.focus(); break }
     }
+    setFocusId(null)
   }, [focusId])
 
   function handleAdd() {
@@ -47,7 +49,7 @@ export function StockTable() {
               <tr key={p.id} className="border-b border-slate-100">
                 <td className="py-1 pr-2">
                   <input
-                    ref={el => { labelRefs.current[p.id] = el }}
+                    data-label-id={p.id}
                     className="w-full border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                     value={p.label}
                     placeholder="optioneel"
@@ -86,7 +88,7 @@ export function StockTable() {
           <div key={p.id} className="border border-slate-200 rounded-xl p-3 space-y-2">
             <div className="flex gap-2 items-center">
               <input
-                ref={el => { labelRefs.current[p.id] = el }}
+                data-label-id={p.id}
                 className="flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                 value={p.label}
                 placeholder="optioneel"

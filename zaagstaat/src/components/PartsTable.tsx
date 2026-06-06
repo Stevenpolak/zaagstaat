@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjectStore } from '../store/useProjectStore'
 import type { GrainDirection, Part } from '../lib/types'
 
@@ -41,14 +41,15 @@ export function PartsTable() {
   const { parts, stockPanels, settings, addPart, updatePart, removePart } = useProjectStore()
   const materials = stockPanels.map(s => s.label).filter(Boolean)
   const firstMaterial = materials[0] ?? ''
-  const labelRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [focusId, setFocusId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (focusId && labelRefs.current[focusId]) {
-      labelRefs.current[focusId]?.focus()
-      setFocusId(null)
+    if (!focusId) return
+    const inputs = document.querySelectorAll<HTMLInputElement>(`[data-label-id="${focusId}"]`)
+    for (const el of inputs) {
+      if (el.offsetParent !== null) { el.focus(); break }
     }
+    setFocusId(null)
   }, [focusId])
 
   function handleAdd() {
@@ -107,7 +108,7 @@ export function PartsTable() {
               return (
                 <tr key={p.id} className="border-b border-slate-100">
                   <td className="py-1 pr-2">
-                    <input ref={el => { labelRefs.current[p.id] = el }}
+                    <input data-label-id={p.id}
                       className="w-full border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       value={p.label} placeholder="optioneel"
                       onChange={e => updatePart(p.id, { label: e.target.value })} />
@@ -160,7 +161,7 @@ export function PartsTable() {
           return (
             <div key={p.id} className="border border-slate-200 rounded-xl p-3 space-y-2">
               <div className="flex gap-2 items-center">
-                <input ref={el => { labelRefs.current[p.id] = el }}
+                <input data-label-id={p.id}
                   className="flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   value={p.label} placeholder="optioneel"
                   onChange={e => updatePart(p.id, { label: e.target.value })} />
