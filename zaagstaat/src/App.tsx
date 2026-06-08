@@ -38,7 +38,7 @@ export default function App() {
   const [slideOpen, setSlideOpen] = useState(false)
   const [autoLoading, setAutoLoading] = useState(false)
   const [autoLoadError, setAutoLoadError] = useState('')
-  const { parts, stockPanels, settings, lastResult, setResult, startNew, loadFromRemote, sessionCode, projectName } = useProjectStore()
+  const { parts, stockPanels, settings, lastResult, setResults, startNew, loadFromRemote, sessionCode, projectName } = useProjectStore()
   const workerRef = useRef<Worker | null>(null)
 
   // ── Auto-load from URL on first mount ─────────────────────────────────────
@@ -133,8 +133,8 @@ export default function App() {
       { type: 'module' }
     )
     workerRef.current = worker
-    worker.onmessage = (e: MessageEvent<OptimizationResult>) => {
-      setResult(e.data)
+    worker.onmessage = (e: MessageEvent<{ results: OptimizationResult[] }>) => {
+      setResults(e.data.results)
       setCalculating(false)
       worker.terminate()
     }

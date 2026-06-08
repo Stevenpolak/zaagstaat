@@ -46,17 +46,6 @@ export function SettingsPanel() {
           </div>
         </Row>
 
-        {/* Optimalisatiedoel */}
-        <Row label="Doel">
-          <select
-            className="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-            value={settings.optimizationGoal}
-            onChange={e => updateSettings({ optimizationGoal: e.target.value as 'minimize-waste' | 'minimize-sheets' })}
-          >
-            <option value="minimize-waste">Min. uitval</option>
-            <option value="minimize-sheets">Min. platen</option>
-          </select>
-        </Row>
 
       </div>
     </section>

@@ -82,10 +82,112 @@ function needsGrainRotation(part: Part, stock: StockPanel): boolean {
   return part.grainDirection !== stock.grainDirection
 }
 
-export function optimize(
+/**
+ * Strip bin-packing (shelf algorithm).
+ * direction 'h': horizontal strips across full width, stacked top-to-bottom.
+ * direction 'v': vertical strips down full height, stacked left-to-right.
+ * Items are returned in the SAME ORDER as the input array (x=-1 for unplaced).
+ */
+/**
+ * Generic strip packer.
+ * 'h' = horizontal strips (full width, stacked top-to-bottom).
+ *   strip dimension = height; cross dimension = width.
+ * 'v' = vertical strips (full height, stacked left-to-right).
+ *   strip dimension = width; cross dimension = height.
+ * Items are returned in the SAME ORDER as the input array (x=-1 for unplaced).
+ * No transposition — v is implemented directly to avoid incorrectly flipping rotated flags.
+ */
+function stripPack(
+  items: { w: number; h: number; canRotate: boolean }[],
+  binW: number,
+  binH: number,
+  direction: 'h' | 'v',
+  kerf = 0,
+): PackResult {
+  const isH = direction === 'h'
+
+  // For each item, choose orientation.
+  // H-strips: minimise height → use min dim as h if canRotate.
+  // V-strips: minimise width  → use min dim as w if canRotate.
+  const oriented = items.map(item => {
+    if (item.canRotate) {
+      if (isH && item.w < item.h) return { w: item.h, h: item.w, rotated: true }
+      if (!isH && item.h < item.w) return { w: item.h, h: item.w, rotated: true }
+    }
+    return { w: item.w, h: item.h, rotated: false }
+  })
+
+  // Sort: strip dimension descending so the first item in each strip sets its size.
+  const sortedIdx = items.map((_, i) => i)
+    .sort((a, b) => (isH ? oriented[b].h - oriented[a].h : oriented[b].w - oriented[a].w))
+
+  const out: PackResult['placements'] = items.map(it => ({ x: -1, y: -1, w: it.w, h: it.h, rotated: false }))
+  const cuts: PackResult['cuts'] = []
+  const placed = new Set<number>()
+
+  let stripOffset = 0  // y for h-strips, x for v-strips
+  const binStrip = isH ? binH : binW   // total size along the strip-stacking axis
+  const binCross = isH ? binW : binH   // total size along the fill axis
+
+  while (placed.size < items.length && stripOffset < binStrip) {
+    const stripDim = (i: number) => isH ? oriented[i].h : oriented[i].w
+    const crossDim = (i: number) => isH ? oriented[i].w : oriented[i].h
+
+    // Candidates: unplaced, fit in remaining strip space, fit in cross direction
+    const candidates = sortedIdx.filter(i =>
+      !placed.has(i) &&
+      stripDim(i) <= binStrip - stripOffset &&
+      crossDim(i) <= binCross
+    )
+    if (candidates.length === 0) break
+
+    const currentStripSize = stripDim(candidates[0])  // first (largest) item sets strip size
+    let crossPos = 0
+
+    for (const idx of candidates) {
+      if (stripDim(idx) > currentStripSize) continue
+      const cd = crossDim(idx)
+      // Allow last piece's trailing kerf to share with the opposite schoonzagen margin
+      // → effectively n pieces need only (n-1) kerfs between them
+      if (crossPos + cd > binCross + kerf) continue
+
+      const { w, h, rotated } = oriented[idx]
+      const x = isH ? crossPos : stripOffset
+      const y = isH ? stripOffset : crossPos
+      out[idx] = { x, y, w, h, rotated }
+      placed.add(idx)
+
+      // Cut along the cross axis (between pieces in the strip)
+      if (crossPos + cd < binCross) {
+        cuts.push(isH
+          ? { orientation: 'vertical',   position: crossPos + cd,      from: stripOffset, to: stripOffset + currentStripSize }
+          : { orientation: 'horizontal', position: crossPos + cd,      from: stripOffset, to: stripOffset + currentStripSize }
+        )
+      }
+      crossPos += cd
+    }
+
+    // Cut along the strip axis (between strips)
+    if (stripOffset + currentStripSize < binStrip) {
+      cuts.push(isH
+        ? { orientation: 'horizontal', position: stripOffset + currentStripSize, from: 0, to: binCross }
+        : { orientation: 'vertical',   position: stripOffset + currentStripSize, from: 0, to: binCross }
+      )
+    }
+
+    stripOffset += currentStripSize
+  }
+
+  return { placements: out, cuts }
+}
+
+type PackFn = (items: { w: number; h: number; canRotate: boolean }[], binW: number, binH: number, kerf: number) => PackResult
+
+function runOptimize(
   allParts: Part[],
   stockPanels: StockPanel[],
   settings: Settings,
+  packFn: PackFn,
 ): OptimizationResult {
   const { kerf, schoonzagen, schoonzagenMaat, brutomaten, overmaat } = settings
 
@@ -109,9 +211,13 @@ export function optimize(
     }
   }
 
-  // Sort each group largest-first
+  // Sort each group: largest area first (min-waste) or longest dimension first (min-sheets)
   for (const items of Object.values(byMaterial)) {
-    items.sort((a, b) => b.bw * b.bh - a.bw * a.bh)
+    if (settings.optimizationGoal === 'minimize-sheets') {
+      items.sort((a, b) => Math.max(b.bw, b.bh) - Math.max(a.bw, a.bh))
+    } else {
+      items.sort((a, b) => b.bw * b.bh - a.bw * a.bh)
+    }
   }
 
   for (const [material, items] of Object.entries(byMaterial)) {
@@ -142,7 +248,7 @@ export function optimize(
         return { w, h, canRotate, preRotate }
       })
 
-      const { placements: results, cuts } = guillotinePack(packItems, usableW, usableH)
+      const { placements: results, cuts } = packFn(packItems, usableW, usableH, kerf)
 
       // Collect cut lines for this sheet (offset by schoonzagen border)
       for (const cut of cuts) {
@@ -207,4 +313,16 @@ export function optimize(
     unplacedPartIds: [...new Set(unplacedPartIds)],
     cutLines,
   }
+}
+
+export function optimize(parts: Part[], stocks: StockPanel[], settings: Settings): OptimizationResult {
+  return runOptimize(parts, stocks, settings, (items, bW, bH) => guillotinePack(items, bW, bH))
+}
+
+export function optimizeStripsH(parts: Part[], stocks: StockPanel[], settings: Settings): OptimizationResult {
+  return runOptimize(parts, stocks, settings, (items, bW, bH, kerf) => stripPack(items, bW, bH, 'h', kerf))
+}
+
+export function optimizeStripsV(parts: Part[], stocks: StockPanel[], settings: Settings): OptimizationResult {
+  return runOptimize(parts, stocks, settings, (items, bW, bH, kerf) => stripPack(items, bW, bH, 'v', kerf))
 }

@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { useProjectStore } from '../store/useProjectStore'
+import { useProjectStore, RESULT_LABELS } from '../store/useProjectStore'
 import { SheetDiagram, COLORS } from './SheetDiagram'
 import { formatExpiry } from '../lib/session'
 
 export function ResultsView() {
-  const { lastResult, stockPanels, parts, settings, sessionCode, expiresAt } = useProjectStore()
+  const { lastResult, allResults, activeResultIndex, cycleResult, stockPanels, parts, settings, sessionCode, expiresAt } = useProjectStore()
 
   if (!lastResult) {
     return (
@@ -34,23 +34,30 @@ export function ResultsView() {
   return (
     <div className="p-4 md:p-6">
 
-      {/* ── Summary bar ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 print-summary">
-        <Stat label="Platen gebruikt"  value={sheetsUsed.length.toString()} />
-        <Stat label="Benutting"        value={`${100 - wastePercent}%`} />
-        <Stat label="Uitval"           value={`${(wasteArea / 1e6).toFixed(2)} m²`}
-          color={wastePercent > 30 ? 'text-orange-600' : undefined} />
-        <Stat label="Gebruikt"         value={`${(usedArea / 1e6).toFixed(2)} m²`} />
-      </div>
+      {/* Alternatieve nesting — cycle through strategies */}
+      {allResults && allResults.length > 1 && (
+        <div className="no-print flex items-center gap-3 mb-4">
+          <span className="text-xs text-slate-400">Nesting:</span>
+          <span className="text-sm font-medium text-slate-700">{RESULT_LABELS[activeResultIndex]}</span>
+          <button
+            onClick={cycleResult}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 hover:border-blue-400 rounded-full px-3 py-1 transition-colors"
+          >
+            Alternatieve nesting →
+          </button>
+        </div>
+      )}
 
-      {/* Sheets per stock */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {Object.entries(sheetsUsedPerStock).map(([label, count]) => (
-          <span key={label} className="bg-blue-50 text-blue-700 rounded-full px-3 py-0.5 text-xs font-medium">
-            {label}: {count} {count === 1 ? 'plaat' : 'platen'}
-          </span>
-        ))}
-      </div>
+      {/* Sheets per stock — only show when more than one sheet is used */}
+      {sheetsUsed.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Object.entries(sheetsUsedPerStock).map(([label, count]) => (
+            <span key={label} className="bg-blue-50 text-blue-700 rounded-full px-3 py-0.5 text-xs font-medium">
+              {label}: {count} {count === 1 ? 'plaat' : 'platen'}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Unplaced warnings */}
       {unplacedPartIds.length > 0 && (
@@ -74,6 +81,12 @@ export function ResultsView() {
         const sheetStartSeq = globalSeq
         globalSeq += sheetPlacements.length
 
+        // Per-sheet stats
+        const sheetArea = stock.width * stock.height
+        const sheetUsedArea = sheetPlacements.reduce((sum, pl) => sum + pl.width * pl.height, 0)
+        const sheetRendement = Math.round(sheetUsedArea / sheetArea * 100)
+        const sheetAfval = ((sheetArea - sheetUsedArea) / 1e6).toFixed(2)
+
         return (
           <section
             key={idx}
@@ -90,8 +103,8 @@ export function ResultsView() {
             {/* Diagram + table side by side */}
             <div className="flex flex-col lg:flex-row gap-5 items-start">
 
-              {/* SVG diagram */}
-              <div className="w-full lg:w-[58%] flex-shrink-0">
+              {/* SVG diagram — portrait orientation, narrower so table has more room */}
+              <div className="w-full lg:w-[36%] flex-shrink-0">
                 <SheetDiagram
                   sheetIdx={idx}
                   sheet={sheet}
@@ -108,6 +121,12 @@ export function ResultsView() {
 
               {/* Per-sheet cut table */}
               <div className="w-full lg:flex-1">
+                {/* Per-sheet stats */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <Stat label="Onderdelen" value={sheetPlacements.length.toString()} />
+                  <Stat label="Gebruikt" value={`${(sheetUsedArea / 1e6).toFixed(2)} m² (${sheetRendement}%)`} />
+                  <Stat label="Rest" value={`${sheetAfval} m²`} />
+                </div>
                 <table className="w-full text-sm border border-slate-200 rounded-xl overflow-hidden">
                   <thead>
                     <tr className="bg-slate-100 text-left text-slate-500 text-xs uppercase tracking-wide">
@@ -115,7 +134,7 @@ export function ResultsView() {
                       <th className="px-3 py-2 font-semibold">Onderdeel</th>
                       <th className="px-3 py-2 font-semibold">Netto (mm)</th>
                       {settings.brutomaten &&
-                        <th className="px-3 py-2 font-semibold">Bruto — zagen op</th>}
+                        <th className="px-3 py-2 font-semibold">Bruto (mm)</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -137,11 +156,11 @@ export function ResultsView() {
                               {seq}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 font-semibold text-slate-800">{part?.label ?? '?'}</td>
+                          <td className="px-3 py-2.5 text-slate-800">{part?.label ?? '?'}</td>
                           <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{netW}×{netH}</td>
                           {settings.brutomaten && (
                             <td className="px-3 py-2.5">
-                              <span className="font-mono text-sm font-bold text-slate-800">{pl.width}×{pl.height}</span>
+                              <span className="font-mono text-xs text-slate-500">{pl.width}×{pl.height}</span>
                             </td>
                           )}
                         </tr>

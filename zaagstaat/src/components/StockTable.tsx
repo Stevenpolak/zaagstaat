@@ -40,7 +40,7 @@ export function StockTable() {
               <th className="pb-1 pr-2 font-medium">Label</th>
               <th className="pb-1 pr-2 font-medium">Lengte (mm)</th>
               <th className="pb-1 pr-2 font-medium">Breedte (mm)</th>
-              <th className="pb-1 pr-2 font-medium">Nerf</th>
+              <th className="pb-1 pr-2 font-medium">Nerfrichting</th>
               <th className="pb-1" />
             </tr>
           </thead>
@@ -50,9 +50,9 @@ export function StockTable() {
                 <td className="py-1 pr-2">
                   <input
                     data-label-id={p.id}
-                    className="w-full border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className={`w-full border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 ${!p.label ? 'border-orange-300 bg-orange-50' : 'border-slate-200'}`}
                     value={p.label}
-                    placeholder="optioneel"
+                    placeholder="bijv. Multiplex 18mm"
                     onChange={e => updateStock(p.id, { label: e.target.value })}
                   />
                 </td>
@@ -89,9 +89,9 @@ export function StockTable() {
             <div className="flex gap-2 items-center">
               <input
                 data-label-id={p.id}
-                className="flex-1 border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className={`flex-1 border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${!p.label ? 'border-orange-300 bg-orange-50' : 'border-slate-200'}`}
                 value={p.label}
-                placeholder="optioneel"
+                placeholder="bijv. Multiplex 18mm"
                 onChange={e => updateStock(p.id, { label: e.target.value })}
               />
               <button onClick={() => removeStock(p.id)} className="text-slate-300 hover:text-red-500 transition-colors px-1" title="Verwijder">✕</button>

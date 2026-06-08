@@ -23,6 +23,8 @@ function newProject(): Project {
   }
 }
 
+export const RESULT_LABELS = ['Schulp stroken', 'Afkort stroken'] as const
+
 interface ProjectStore extends Project {
   // session
   startNew: () => void
@@ -42,8 +44,12 @@ interface ProjectStore extends Project {
   // settings
   updateSettings: (patch: Partial<Settings>) => void
 
-  // results
-  setResult: (result: OptimizationResult) => void
+  // results — allResults is transient (not persisted), lastResult is the active one
+  allResults: OptimizationResult[] | null
+  activeResultIndex: number
+  setResults: (results: OptimizationResult[]) => void
+  cycleResult: () => void
+  setResult: (result: OptimizationResult) => void  // kept for backward compat
 
   // persistence
   _saveTimer: ReturnType<typeof setTimeout> | null
@@ -55,6 +61,8 @@ let _saveTimer: ReturnType<typeof setTimeout> | null = null
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   ...newProject(),
   _saveTimer: null,
+  allResults: null,
+  activeResultIndex: 0,
 
   startNew() {
     set(newProject())
@@ -125,6 +133,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateSettings(patch) {
     set(s => ({ settings: { ...s.settings, ...patch } }))
+    get().scheduleSave()
+  },
+
+  setResults(results) {
+    set({ allResults: results, activeResultIndex: 0, lastResult: results[0] ?? null })
+    get().scheduleSave()
+  },
+
+  cycleResult() {
+    const { allResults, activeResultIndex } = get()
+    if (!allResults || allResults.length < 2) return
+    const next = (activeResultIndex + 1) % allResults.length
+    set({ activeResultIndex: next, lastResult: allResults[next] })
     get().scheduleSave()
   },
 
