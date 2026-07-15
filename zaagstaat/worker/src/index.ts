@@ -1,3 +1,6 @@
+import { validateProject } from '../../shared/projectValidation'
+import { securityHeaders } from '../../shared/securityHeaders'
+
 /**
  * Zaagstaat — Cloudflare Worker
  *
@@ -17,14 +20,22 @@ export interface Env {
   PROJECTS: KVNamespace
   ALLOWED_ORIGIN: string   // set in wrangler.toml vars
   HETZNER_ORIGIN: string   // e.g. https://46.225.223.181 — the actual server
+  ORIGIN_SECRET?: string   // set with `wrangler secret put ORIGIN_SECRET`
 }
 
 const TTL_SECONDS = 90 * 24 * 60 * 60
 
 const CODE_RE = /^[ACDEFGHJKLMNPQRTUVWXY3467]{5}$/
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!)
+}
+
 function cors(origin: string) {
   return {
+    ...securityHeaders(),
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -43,9 +54,12 @@ function isCrawler(ua: string): boolean {
 }
 
 function ogHtml(code: string, projectName: string, siteUrl: string): string {
-  const title = projectName
-    ? `Zaagstaat — ${projectName}`
-    : `Zaagstaat — Project ${code}`
+  const safeCode = escapeHtml(code)
+  const safeSiteUrl = escapeHtml(siteUrl)
+  const safeProjectName = escapeHtml(projectName)
+  const title = safeProjectName
+    ? `Zaagstaat — ${safeProjectName}`
+    : `Zaagstaat — Project ${safeCode}`
   const description = 'Bekijk dit zaagproject op Zaagstaat, de gratis zaaglijst-optimalisator.'
   return `<!DOCTYPE html>
 <html lang="nl">
@@ -55,16 +69,16 @@ function ogHtml(code: string, projectName: string, siteUrl: string): string {
   <meta name="description" content="${description}">
   <meta property="og:title" content="${title}">
   <meta property="og:description" content="${description}">
-  <meta property="og:url" content="${siteUrl}/${code}">
+  <meta property="og:url" content="${safeSiteUrl}/${safeCode}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Zaagstaat">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="${title}">
   <meta name="twitter:description" content="${description}">
-  <meta http-equiv="refresh" content="0;url=${siteUrl}/${code}">
+  <meta http-equiv="refresh" content="0;url=${safeSiteUrl}/${safeCode}">
 </head>
 <body>
-  <p><a href="${siteUrl}/${code}">Open ${title}</a></p>
+  <p><a href="${safeSiteUrl}/${safeCode}">Open ${title}</a></p>
 </body>
 </html>`
 }
@@ -106,11 +120,21 @@ export default {
       if (request.method === 'PUT') {
         const body = await request.text()
         if (body.length > 256_000) return new Response('Project te groot', { status: 413, headers })
-        try { JSON.parse(body) } catch {
+        let data: unknown
+        try { data = JSON.parse(body) } catch {
           return new Response('Ongeldige JSON', { status: 400, headers })
         }
-        await env.PROJECTS.put(code, body, { expirationTtl: TTL_SECONDS })
-        return new Response(JSON.stringify({ ok: true }), {
+        const validation = validateProject(data)
+        if (!validation.valid || (data as { sessionCode?: unknown }).sessionCode !== code) {
+          return new Response(
+            JSON.stringify({ error: validation.error ?? 'Projectcode komt niet overeen.' }),
+            { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } },
+          )
+        }
+        const expiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString()
+        const storedProject = { ...(data as Record<string, unknown>), expiresAt }
+        await env.PROJECTS.put(code, JSON.stringify(storedProject), { expirationTtl: TTL_SECONDS })
+        return new Response(JSON.stringify({ ok: true, expiresAt }), {
           status: 200,
           headers: { ...headers, 'Content-Type': 'application/json' },
         })
@@ -122,7 +146,7 @@ export default {
     // ── OG proxy / SPA proxy ─────────────────────────────────────────────────
     // Only active when HETZNER_ORIGIN is configured (domain routes through CF)
     if (!env.HETZNER_ORIGIN) {
-      return new Response('Not found', { status: 404 })
+      return new Response('Not found', { status: 404, headers: securityHeaders() })
     }
 
     const ua = request.headers.get('User-Agent') ?? ''
@@ -145,24 +169,30 @@ export default {
 
       return new Response(ogHtml(code, projectName, siteUrl), {
         status: 200,
-        headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+        headers: { ...securityHeaders(), 'Content-Type': 'text/html; charset=UTF-8' },
       })
     }
 
     // Regular browser request → proxy to Hetzner
     const proxyUrl = env.HETZNER_ORIGIN + url.pathname + url.search
     try {
+      const proxyHeaders = new Headers(request.headers)
+      proxyHeaders.delete('Host')
+      if (env.ORIGIN_SECRET) proxyHeaders.set('X-Origin-Verify', env.ORIGIN_SECRET)
       const proxyRes = await fetch(proxyUrl, {
         method: request.method,
-        headers: { 'Host': url.hostname },
+        headers: proxyHeaders,
         body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
       })
+      const responseHeaders = new Headers(proxyRes.headers)
+      for (const [name, value] of Object.entries(securityHeaders())) responseHeaders.set(name, value)
+      responseHeaders.delete('Server')
       return new Response(proxyRes.body, {
         status: proxyRes.status,
-        headers: proxyRes.headers,
+        headers: responseHeaders,
       })
     } catch {
-      return new Response('Proxy error', { status: 502 })
+      return new Response('Proxy error', { status: 502, headers: securityHeaders() })
     }
   },
 }

@@ -24,17 +24,20 @@ export function ConfiguratorPanel({ open, onClose, canCalculate, calculating, va
 
       {/* Slide-over panel */}
       <div
-        className={`fixed top-0 left-0 h-full w-full sm:max-w-[90vw] bg-white shadow-2xl z-30 flex flex-col
+        className={`fixed top-0 left-0 h-full w-full sm:max-w-[90vw] z-30 flex flex-col
           transform transition-transform duration-300 ease-in-out no-print ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ background: 'var(--surface)', boxShadow: '0 0 40px rgba(40,33,22,0.18)' }}
       >
         {/* Panel header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-          <h2 className="font-semibold text-slate-800">Invoer bewerken</h2>
+        <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 border-b"
+          style={{ background: 'var(--paper-warm)', borderColor: 'var(--line)' }}>
+          <h2 className="font-bold text-sm" style={{ color: 'var(--ink)' }}>Invoer bewerken</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 transition-colors text-xl leading-none px-1"
+            className="transition-colors text-xl leading-none px-1"
+            style={{ color: 'var(--ink-faint)' }}
             title="Sluiten"
           >✕</button>
         </div>
@@ -46,17 +49,20 @@ export function ConfiguratorPanel({ open, onClose, canCalculate, calculating, va
           <SettingsPanel />
         </div>
 
-        {/* Sticky footer with actions */}
-        <div className="flex-shrink-0 border-t border-slate-200 p-4 space-y-2 bg-white">
+        {/* Sticky footer */}
+        <div className="flex-shrink-0 border-t p-4 space-y-2" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
           <button
             onClick={() => { onCalculate(); onClose() }}
             disabled={!canCalculate}
-            className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
+            className="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors"
+            style={{ background: 'var(--accent)' }}
+            onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.background = 'var(--accent-ink)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}
           >
             {calculating ? 'Berekenen...' : 'Berekenen'}
           </button>
           {validationMessage && (
-            <p className="text-xs text-orange-600 text-center">{validationMessage}</p>
+            <p className="text-xs text-center" style={{ color: 'var(--warn)' }}>{validationMessage}</p>
           )}
         </div>
       </div>

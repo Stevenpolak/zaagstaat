@@ -1,3 +1,6 @@
+import type { Project } from './types'
+import { validateProject } from '../../shared/projectValidation'
+
 // Unambiguous alphabet: no O/0, I/1, S/5, Z/2, B/8
 const ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY3467'
 
@@ -21,18 +24,29 @@ export function formatExpiry(isoDate: string): string {
 
 const API_BASE = import.meta.env.VITE_WORKER_URL ?? ''
 
-export async function saveProject(code: string, data: object): Promise<void> {
+export async function saveProject(code: string, data: object, signal?: AbortSignal): Promise<string> {
   const res = await fetch(`${API_BASE}/project/${code}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
+    signal,
   })
   if (!res.ok) throw new Error(`Opslaan mislukt: ${res.status}`)
+  const result: unknown = await res.json()
+  if (typeof result !== 'object' || result === null ||
+      !('expiresAt' in result) || typeof result.expiresAt !== 'string' ||
+      !Number.isFinite(Date.parse(result.expiresAt))) {
+    throw new Error('Opslaan mislukt: ongeldig antwoord van server.')
+  }
+  return result.expiresAt
 }
 
-export async function loadProject(code: string): Promise<object> {
+export async function loadProject(code: string): Promise<Project> {
   const res = await fetch(`${API_BASE}/project/${code}`)
   if (res.status === 404) throw new Error('Code niet gevonden of verlopen.')
   if (!res.ok) throw new Error(`Laden mislukt: ${res.status}`)
-  return res.json()
+  const data: unknown = await res.json()
+  const validation = validateProject(data)
+  if (!validation.valid) throw new Error(`Projectgegevens zijn ongeldig: ${validation.error}`)
+  return data as Project
 }

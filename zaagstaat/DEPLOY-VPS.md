@@ -50,13 +50,23 @@ Maak `/etc/caddy/Caddyfile` aan:
 nano /etc/caddy/Caddyfile
 ```
 
-Inhoud (vervang het domein):
+Gebruik bij voorkeur de meegeleverde `Caddyfile.example`. De basisconfiguratie bevat
+beveiligingsheaders voor CSP, framing, MIME-sniffing, referrers en browserrechten.
+
+Minimale inhoud (vervang het domein):
 
 ```
 zaagstaat.jouwdomein.nl {
     root * /var/www/zaagstaat
     encode gzip
     file_server
+    header {
+        Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://*.workers.dev; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        -Server
+    }
     # SPA: stuur alle routes naar index.html
     try_files {path} /index.html
 }
@@ -69,6 +79,19 @@ systemctl reload caddy
 ```
 
 Caddy regelt automatisch een Let's Encrypt SSL-certificaat zodra het domein klopt.
+
+### Directe origin afschermen
+
+Als het volledige domein via de Cloudflare Worker loopt, kun je voorkomen dat bezoekers
+de Hetzner-origin rechtstreeks benaderen. De optionele variant onderaan
+`Caddyfile.example` controleert daarvoor een geheim `X-Origin-Verify`-header.
+
+1. Maak een lang willekeurig geheim en zet dit als `ORIGIN_SECRET` in de systemd-omgeving van Caddy.
+2. Zet exact hetzelfde geheim in Cloudflare met `cd worker && npx wrangler secret put ORIGIN_SECRET`.
+3. Activeer daarna pas het afgeschermde origin-blok in `Caddyfile.example`.
+
+Zet het geheim nooit in `wrangler.toml`, Git of de frontend. Activeer deze blokkade niet
+zolang browsers de VPS nog rechtstreeks moeten bereiken.
 
 ---
 

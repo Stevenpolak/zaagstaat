@@ -10,7 +10,7 @@ import { NewProjectModal } from './components/NewProjectModal'
 import { AppFooter } from './components/AppFooter'
 import { useProjectStore } from './store/useProjectStore'
 import { loadProject } from './lib/session'
-import type { OptimizationResult, Project } from './lib/types'
+import type { OptimizationResult } from './lib/types'
 
 const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
@@ -36,7 +36,7 @@ export default function App() {
   const [showNameModal, setShowNameModal] = useState(false)
   const [calculating, setCalculating] = useState(false)
   const [slideOpen, setSlideOpen] = useState(false)
-  const [autoLoading, setAutoLoading] = useState(false)
+  const [autoLoading, setAutoLoading] = useState(() => codeFromUrl() !== null)
   const [autoLoadError, setAutoLoadError] = useState('')
   const { parts, stockPanels, settings, lastResult, setResults, startNew, loadFromRemote, sessionCode, projectName } = useProjectStore()
   const workerRef = useRef<Worker | null>(null)
@@ -45,10 +45,9 @@ export default function App() {
   useEffect(() => {
     const code = codeFromUrl()
     if (!code) return
-    setAutoLoading(true)
     loadProject(code)
       .then(data => {
-        loadFromRemote(data as Project)
+        loadFromRemote(data)
         setReady(true)  // loaded project — no name modal
       })
       .catch(err => {
@@ -153,12 +152,12 @@ export default function App() {
   // ── Auto-loading splash ────────────────────────────────────────────────────
   if (autoLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--paper-deep)' }}>
         <div className="text-center space-y-3">
-          <div className="text-3xl font-mono font-bold text-blue-700 tracking-widest">
+          <div className="text-3xl font-bold tracking-widest" style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
             {codeFromUrl()}
           </div>
-          <p className="text-slate-500 text-sm">Project laden…</p>
+          <p className="text-sm" style={{ color: 'var(--ink-faint)' }}>Project laden…</p>
         </div>
       </div>
     )
@@ -172,24 +171,30 @@ export default function App() {
   // ── Full-screen input (no results yet) ────────────────────────────────────
   if (!lastResult) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper-deep)' }}>
         <Header onNewProject={handleNewProject} />
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 py-6 space-y-10">
-            <StockTable />
-            <PartsTable />
-            <SettingsPanel />
-            <div className="space-y-2 pb-8">
-              <button
-                onClick={calculate}
-                disabled={!canCalculate}
-                className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl text-lg transition-colors"
-              >
-                {calculating ? 'Berekenen...' : 'Berekenen'}
-              </button>
-              {validationMessage && (
-                <p className="text-xs text-orange-600 text-center">{validationMessage}</p>
-              )}
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="rounded-[20px] border p-6 md:p-8 space-y-10"
+              style={{ background: 'var(--surface)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-card)' }}>
+              <StockTable />
+              <PartsTable />
+              <SettingsPanel />
+              <div className="space-y-2 pb-2">
+                <button
+                  onClick={calculate}
+                  disabled={!canCalculate}
+                  className="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl text-base transition-colors"
+                  style={{ background: 'var(--accent)' }}
+                  onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.background = 'var(--accent-ink)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}
+                >
+                  {calculating ? 'Berekenen...' : 'Berekenen'}
+                </button>
+                {validationMessage && (
+                  <p className="text-xs text-center" style={{ color: 'var(--warn)' }}>{validationMessage}</p>
+                )}
+              </div>
             </div>
           </div>
         </main>
@@ -200,13 +205,14 @@ export default function App() {
 
   // ── Full-screen results ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper-deep)' }}>
       <Header onNewProject={handleNewProject} />
 
-      <div className="no-print bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-3">
+      <div className="no-print border-b px-4 py-2 flex items-center gap-3" style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
         <button
           onClick={() => setSlideOpen(true)}
-          className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-700 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold transition-colors"
+          style={{ color: 'var(--ink)' }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z"
@@ -215,10 +221,10 @@ export default function App() {
           Invoer bewerken
         </button>
         <div className="flex-1" />
-        {/* Desktop: print + share side by side */}
         <button
           onClick={() => window.print()}
-          className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+          className="hidden sm:flex items-center gap-2 text-sm transition-colors"
+          style={{ color: 'var(--ink-faint)' }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <rect x="3" y="6" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
@@ -227,11 +233,11 @@ export default function App() {
           </svg>
           Afdrukken
         </button>
-        {/* Share: always shown on mobile, also on desktop if supported */}
         {canShare && (
           <button
             onClick={() => navigator.share({ title: `Zaagstaat — ${projectName || sessionCode}`, text: 'Bekijk mijn zaagproject', url: window.location.href })}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            className="flex items-center gap-2 text-sm transition-colors"
+            style={{ color: 'var(--ink-faint)' }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

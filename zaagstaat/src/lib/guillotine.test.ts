@@ -236,3 +236,19 @@ describe('waste calculation', () => {
     expect(result.wastePercent).toBe(75)
   })
 })
+
+describe('unplaceable parts', () => {
+  it('does not count an empty sheet when no part fits', () => {
+    const result = optimize(
+      [part({ width: 2_000, height: 2_000 })],
+      [sheet({ width: 1_000, height: 1_000 })],
+      settings(),
+    )
+
+    expect(result.placements).toHaveLength(0)
+    expect(result.sheetsUsed).toHaveLength(0)
+    expect(result.sheetsUsedPerStock.Plaat).toBe(0)
+    expect(result.totalArea).toBe(0)
+    expect(result.unplacedPartIds).toContain('p1')
+  })
+})

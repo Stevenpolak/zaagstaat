@@ -23,46 +23,59 @@ export function NewProjectModal({ onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(28,25,22,0.45)' }}>
+      <div className="w-full max-w-md rounded-[20px] border p-8 space-y-6"
+        style={{ background: 'var(--surface)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-popup)' }}>
 
-        {/* Beta badge */}
-        <div className="text-center">
-          <span className="inline-block bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
-            Bèta — testversie
-          </span>
-        </div>
+        {/* Eyebrow */}
+        <p className="text-xs uppercase tracking-[0.18em] text-center" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faint)' }}>
+          een gereedschap van Studio Kroos — bèta
+        </p>
 
-        {/* Code display — prominent */}
+        {/* Code display */}
         <div className="text-center">
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Jouw projectcode</p>
+          <p className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faint)' }}>
+            Jouw projectcode
+          </p>
           <div className="flex items-center justify-center gap-3">
-            <span className="font-mono text-4xl font-bold tracking-[0.2em] text-blue-700">
+            <span className="text-4xl font-bold tracking-[0.2em]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
               {sessionCode}
             </span>
             <button
               onClick={copyCode}
               title="Kopieer code"
-              className="text-blue-300 hover:text-blue-600 transition-colors text-lg"
+              className="transition-colors text-lg"
+              style={{ color: 'var(--ink-ghost)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-ghost)')}
             >
               {copied ? '✓' : '⧉'}
             </button>
           </div>
-          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-            ⚠ Schrijf deze code op of bewaar hem.<br />
+          <div className="mt-3 rounded-xl px-4 py-3 text-sm border"
+            style={{ background: 'var(--paper-warm)', borderColor: 'var(--line)', color: 'var(--ink-soft)' }}>
+            Schrijf deze code op of bewaar hem.<br />
             Hiermee laad je dit project terug op elk apparaat.<br />
-            <span className="text-amber-600 text-xs">Dit is een testversie — functies kunnen nog veranderen.</span>
+            <span className="text-xs" style={{ color: 'var(--ink-faint)' }}>
+              Dit is een testversie — functies kunnen nog veranderen.
+            </span>
           </div>
         </div>
 
         {/* Project name input */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--ink-soft)' }}>
             Geef je project een naam
           </label>
           <input
             autoFocus
-            className="w-full border border-slate-300 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border px-4 py-3 text-sm focus:outline-none focus:ring-2"
+            style={{
+              background: 'var(--field)',
+              borderColor: 'var(--line)',
+              borderRadius: 'var(--r-field)',
+              color: 'var(--ink)',
+            }}
             placeholder="bijv. Kast woonkamer"
             value={name}
             onChange={e => setName(e.target.value)}
@@ -73,7 +86,10 @@ export function NewProjectModal({ onDone }: Props) {
         <button
           onClick={handleStart}
           disabled={!name.trim()}
-          className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
+          className="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors"
+          style={{ background: 'var(--accent)' }}
+          onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.background = 'var(--accent-ink)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}
         >
           Project starten
         </button>

@@ -52,24 +52,38 @@ interface ProjectStore extends Project {
   setResult: (result: OptimizationResult) => void  // kept for backward compat
 
   // persistence
-  _saveTimer: ReturnType<typeof setTimeout> | null
+  saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  saveError: string | null
   scheduleSave: () => void
 }
 
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
+let _saveController: AbortController | null = null
+let _saveGeneration = 0
+
+function cancelPendingSave() {
+  if (_saveTimer) clearTimeout(_saveTimer)
+  _saveTimer = null
+  _saveController?.abort()
+  _saveController = null
+  _saveGeneration++
+}
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   ...newProject(),
-  _saveTimer: null,
+  saveStatus: 'idle',
+  saveError: null,
   allResults: null,
   activeResultIndex: 0,
 
   startNew() {
-    set(newProject())
+    cancelPendingSave()
+    set({ ...newProject(), allResults: null, activeResultIndex: 0, saveStatus: 'idle', saveError: null })
   },
 
   loadFromRemote(data) {
-    set({ ...data })
+    cancelPendingSave()
+    set({ ...data, allResults: null, activeResultIndex: 0, saveStatus: 'idle', saveError: null })
   },
 
   updateProjectName(name) {
@@ -156,10 +170,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   scheduleSave() {
     if (_saveTimer) clearTimeout(_saveTimer)
+    _saveController?.abort()
+    _saveController = null
+    const generation = ++_saveGeneration
+    set({ saveStatus: 'pending', saveError: null })
     _saveTimer = setTimeout(async () => {
+      _saveTimer = null
       const s = get()
+      const controller = new AbortController()
+      _saveController = controller
+      set({ saveStatus: 'saving', saveError: null })
       try {
-        await saveProject(s.sessionCode, {
+        const expiresAt = await saveProject(s.sessionCode, {
           sessionCode: s.sessionCode,
           expiresAt: s.expiresAt,
           projectName: s.projectName,
@@ -167,9 +189,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           parts: s.parts,
           settings: s.settings,
           lastResult: s.lastResult,
+        }, controller.signal)
+        if (generation === _saveGeneration) {
+          _saveController = null
+          set({ expiresAt, saveStatus: 'saved', saveError: null })
+        }
+      } catch (error) {
+        if (controller.signal.aborted || generation !== _saveGeneration) return
+        _saveController = null
+        set({
+          saveStatus: 'error',
+          saveError: error instanceof Error ? error.message : 'Opslaan mislukt.',
         })
-      } catch {
-        // silent — no network in offline mode
       }
     }, 2000)
   },

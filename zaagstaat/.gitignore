@@ -14,6 +14,13 @@ dist-ssr
 .env
 .env.local
 
+# Private keys and local server credentials
+proxmox
+proxmox.pub
+*.pem
+id_rsa
+id_ed25519
+
 # Cloudflare Wrangler (contains API keys)
 .wrangler/
 

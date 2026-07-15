@@ -5,11 +5,10 @@ export function SettingsPanel() {
 
   return (
     <section>
-      <h2 className="text-base font-semibold text-slate-700 mb-3">Instellingen</h2>
+      <h2 className="text-base font-bold mb-3" style={{ color: 'var(--ink)' }}>Instellingen</h2>
 
       <div className="space-y-3">
 
-        {/* Zaagdikte */}
         <Row label="Zaagdikte">
           <NumberInput
             value={settings.kerf}
@@ -18,7 +17,6 @@ export function SettingsPanel() {
           />
         </Row>
 
-        {/* Schoonzagen — toggle + value on one line, value hidden when off */}
         <Row label="Schoonzagen">
           <div className="flex items-center gap-2">
             <Toggle value={settings.schoonzagen} onChange={v => updateSettings({ schoonzagen: v })} />
@@ -32,7 +30,6 @@ export function SettingsPanel() {
           </div>
         </Row>
 
-        {/* Bruto maten — toggle + value on one line, value hidden when off */}
         <Row label="Bruto maten">
           <div className="flex items-center gap-2">
             <Toggle value={settings.brutomaten} onChange={v => updateSettings({ brutomaten: v })} />
@@ -46,7 +43,6 @@ export function SettingsPanel() {
           </div>
         </Row>
 
-
       </div>
     </section>
   )
@@ -55,7 +51,7 @@ export function SettingsPanel() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm text-slate-600 w-32 flex-shrink-0">{label}</span>
+      <span className="text-sm w-32 flex-shrink-0" style={{ color: 'var(--ink-soft)' }}>{label}</span>
       {children}
     </div>
   )
@@ -66,11 +62,18 @@ function NumberInput({ value, onChange, suffix }: { value: number; onChange: (v:
     <div className="flex items-center gap-1">
       <input
         type="number" min={0} step={0.1}
-        className="w-16 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="w-16 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 text-center"
+        style={{
+          fontFamily: 'var(--font-mono)',
+          background: 'var(--field)',
+          borderColor: 'var(--line)',
+          borderRadius: 'var(--r-field)',
+          color: 'var(--ink)',
+        }}
         value={value}
         onChange={e => onChange(+e.target.value)}
       />
-      {suffix && <span className="text-xs text-slate-400">{suffix}</span>}
+      {suffix && <span className="text-xs" style={{ color: 'var(--ink-faint)' }}>{suffix}</span>}
     </div>
   )
 }
@@ -79,7 +82,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   return (
     <button
       onClick={() => onChange(!value)}
-      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${value ? 'bg-blue-600' : 'bg-slate-300'}`}
+      className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
+      style={{ background: value ? 'var(--accent)' : 'var(--line-strong)' }}
     >
       <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5' : ''}`} />
     </button>

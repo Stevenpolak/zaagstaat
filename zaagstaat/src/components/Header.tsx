@@ -3,7 +3,7 @@ import { useProjectStore } from '../store/useProjectStore'
 import { formatExpiry } from '../lib/session'
 
 export function Header({ onNewProject }: { onNewProject: () => void }) {
-  const { sessionCode, expiresAt, projectName } = useProjectStore()
+  const { sessionCode, expiresAt, projectName, saveStatus, saveError, scheduleSave } = useProjectStore()
   const [copied, setCopied] = useState(false)
 
   function copyCode() {
@@ -13,32 +13,57 @@ export function Header({ onNewProject }: { onNewProject: () => void }) {
   }
 
   return (
-    <header className="no-print bg-blue-800 text-white px-4 py-3 flex items-center justify-between gap-4">
+    <header className="no-print px-4 py-3 flex items-center justify-between gap-4 border-b"
+      style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
       <div className="flex items-center gap-3 min-w-0">
-        <h1 className="text-xl font-bold tracking-tight flex-shrink-0">Zaagstaat</h1>
+        <h1 className="text-lg font-extrabold tracking-tight flex-shrink-0" style={{ color: 'var(--ink)', letterSpacing: '-0.015em' }}>
+          Zaagstaat
+        </h1>
         {projectName && (
-          <span className="text-blue-200 text-sm truncate hidden sm:block">— {projectName}</span>
+          <>
+            <span className="hidden sm:block w-px h-4" style={{ background: 'var(--line-strong)' }} />
+            <span className="text-sm truncate hidden sm:block" style={{ color: 'var(--ink-soft)' }}>{projectName}</span>
+          </>
         )}
       </div>
 
       <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-blue-900/60 rounded-lg px-3 py-1.5">
-          <span className="text-blue-200 text-xs hidden sm:block">Code:</span>
-          <span className="font-mono font-bold tracking-widest text-white text-sm">{sessionCode}</span>
+        {saveStatus !== 'idle' && (
+          <button
+            type="button"
+            onClick={() => saveStatus === 'error' && scheduleSave()}
+            title={saveStatus === 'error' ? `${saveError ?? 'Opslaan mislukt.'} Klik om opnieuw te proberen.` : undefined}
+            className="text-xs hidden sm:block"
+            style={{ color: saveStatus === 'error' ? 'var(--error)' : 'var(--ink-faint)' }}
+          >
+            {saveStatus === 'pending' && 'Wijzigingen…'}
+            {saveStatus === 'saving' && 'Opslaan…'}
+            {saveStatus === 'saved' && 'Opgeslagen ✓'}
+            {saveStatus === 'error' && 'Opslaan mislukt — opnieuw proberen'}
+          </button>
+        )}
+        <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5"
+          style={{ background: 'var(--paper-warm)', borderColor: 'var(--line)' }}>
+          <span className="text-xs hidden sm:block" style={{ color: 'var(--ink-faint)' }}>Code</span>
+          <span className="font-bold tracking-widest text-sm" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink)', letterSpacing: '0.16em' }}>
+            {sessionCode}
+          </span>
           <button
             onClick={copyCode}
             title="Kopieer code"
-            className="text-blue-200 hover:text-white transition-colors text-xs ml-1"
+            className="ml-1 transition-colors text-xs"
+            style={{ color: 'var(--ink-faint)' }}
           >
             {copied ? '✓' : '⧉'}
           </button>
         </div>
-        <span className="text-blue-200 text-xs hidden md:block">
+        <span className="text-xs hidden md:block" style={{ color: 'var(--ink-faint)' }}>
           Geldig tot {formatExpiry(expiresAt)}
         </span>
         <button
           onClick={onNewProject}
-          className="text-blue-200 hover:text-white text-xs underline underline-offset-2 transition-colors"
+          className="text-xs underline underline-offset-2 transition-colors"
+          style={{ color: 'var(--accent)', borderBottom: '1px solid var(--accent)', textDecoration: 'none', paddingBottom: '1px' }}
         >
           Nieuw
         </button>
