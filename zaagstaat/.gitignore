@@ -34,3 +34,7 @@ id_ed25519
 *.njsproj
 *.sln
 *.sw?
+.claude/
+
+# Design handoff assets (not part of the app)
+design_handoff_zaagstaat_restyle/
