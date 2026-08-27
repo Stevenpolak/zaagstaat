@@ -57,6 +57,7 @@ interface ProjectStore extends Project {
   saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error'
   saveError: string | null
   scheduleSave: () => void
+  flushSave: () => void
 }
 
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -71,145 +72,169 @@ function cancelPendingSave() {
   _saveGeneration++
 }
 
-export const useProjectStore = create<ProjectStore>((set, get) => ({
-  ...newProject(),
-  saveStatus: 'idle',
-  saveError: null,
-  allResults: null,
-  activeResultIndex: 0,
-
-  startNew() {
-    cancelPendingSave()
-    set({ ...newProject(), allResults: null, activeResultIndex: 0, saveStatus: 'idle', saveError: null })
-  },
-
-  loadFromRemote(data) {
-    cancelPendingSave()
-    const allResults = data.allResults ?? (data.lastResult ? [data.lastResult] : null)
-    const activeResultIndex = allResults && allResults.length > 1
-      ? Math.min(data.activeResultIndex ?? 0, allResults.length - 1)
-      : 0
-    set({ ...data, allResults, activeResultIndex, saveStatus: 'idle', saveError: null })
-  },
-
-  updateProjectName(name) {
-    set({ projectName: name })
-    get().scheduleSave()
-  },
-
-  addStock(panel) {
-    set(s => ({ stockPanels: [...s.stockPanels, panel] }))
-    get().scheduleSave()
-  },
-  updateStock(id, patch) {
-    set(s => {
-      const oldStock = s.stockPanels.find(p => p.id === id)
-      const updated = s.stockPanels.map(p => p.id === id ? { ...p, ...patch } : p)
-      let updatedParts = s.parts
-
-      // Cascade label change → update material references in all parts
-      if ('label' in patch && oldStock && patch.label !== oldStock.label) {
-        updatedParts = updatedParts.map(p =>
-          p.material === oldStock.label ? { ...p, material: patch.label! } : p
-        )
+export const useProjectStore = create<ProjectStore>((set, get) => {
+  async function runSave(generation: number, keepalive = false) {
+    const s = get()
+    const controller = new AbortController()
+    _saveController = controller
+    set({ saveStatus: 'saving', saveError: null })
+    try {
+      const expiresAt = await saveProject(s.sessionCode, {
+        sessionCode: s.sessionCode,
+        expiresAt: s.expiresAt,
+        projectName: s.projectName,
+        stockPanels: s.stockPanels,
+        parts: s.parts,
+        settings: s.settings,
+        lastResult: s.lastResult,
+        allResults: s.allResults,
+        activeResultIndex: s.activeResultIndex,
+      }, controller.signal, keepalive)
+      if (generation === _saveGeneration) {
+        _saveController = null
+        set({ expiresAt, saveStatus: 'saved', saveError: null })
       }
+    } catch (error) {
+      if (controller.signal.aborted || generation !== _saveGeneration) return
+      _saveController = null
+      set({
+        saveStatus: 'error',
+        saveError: error instanceof Error ? error.message : 'Opslaan mislukt.',
+      })
+    }
+  }
 
-      // Cascade grain direction change → update grain in all parts using this material
-      if ('grainDirection' in patch) {
-        const stock = updated.find(p => p.id === id)
-        if (stock) {
-          const newGrain = stock.grainDirection
+  return {
+    ...newProject(),
+    saveStatus: 'idle',
+    saveError: null,
+    allResults: null,
+    activeResultIndex: 0,
+
+    startNew() {
+      cancelPendingSave()
+      set({ ...newProject(), allResults: null, activeResultIndex: 0, saveStatus: 'idle', saveError: null })
+    },
+
+    loadFromRemote(data) {
+      cancelPendingSave()
+      const allResults = data.allResults ?? (data.lastResult ? [data.lastResult] : null)
+      const activeResultIndex = allResults && allResults.length > 1
+        ? Math.min(data.activeResultIndex ?? 0, allResults.length - 1)
+        : 0
+      set({ ...data, allResults, activeResultIndex, saveStatus: 'idle', saveError: null })
+    },
+
+    updateProjectName(name) {
+      set({ projectName: name })
+      get().scheduleSave()
+    },
+
+    addStock(panel) {
+      set(s => ({ stockPanels: [...s.stockPanels, panel] }))
+      get().scheduleSave()
+    },
+    updateStock(id, patch) {
+      set(s => {
+        const oldStock = s.stockPanels.find(p => p.id === id)
+        const updated = s.stockPanels.map(p => p.id === id ? { ...p, ...patch } : p)
+        let updatedParts = s.parts
+
+        // Cascade label change → update material references in all parts
+        if ('label' in patch && oldStock && patch.label !== oldStock.label) {
           updatedParts = updatedParts.map(p =>
-            p.material === stock.label
-              ? { ...p, grainDirection: newGrain === 'geen' ? 'geen' : newGrain }
-              : p
+            p.material === oldStock.label ? { ...p, material: patch.label! } : p
           )
         }
-      }
 
-      return { stockPanels: updated, parts: updatedParts }
-    })
-    get().scheduleSave()
-  },
-  removeStock(id) {
-    set(s => ({ stockPanels: s.stockPanels.filter(p => p.id !== id) }))
-    get().scheduleSave()
-  },
-
-  addPart(part) {
-    set(s => ({ parts: [...s.parts, part] }))
-    get().scheduleSave()
-  },
-  updatePart(id, patch) {
-    set(s => ({
-      parts: s.parts.map(p => p.id === id ? { ...p, ...patch } : p),
-    }))
-    get().scheduleSave()
-  },
-  removePart(id) {
-    set(s => ({ parts: s.parts.filter(p => p.id !== id) }))
-    get().scheduleSave()
-  },
-
-  updateSettings(patch) {
-    set(s => ({ settings: { ...s.settings, ...patch } }))
-    get().scheduleSave()
-  },
-
-  setResults(results) {
-    set({ allResults: results, activeResultIndex: 0, lastResult: results[0] ?? null })
-    get().scheduleSave()
-  },
-
-  cycleResult() {
-    const { allResults, activeResultIndex } = get()
-    if (!allResults || allResults.length < 2) return
-    const next = (activeResultIndex + 1) % allResults.length
-    set({ activeResultIndex: next, lastResult: allResults[next] })
-    get().scheduleSave()
-  },
-
-  setResult(result) {
-    set({ lastResult: result })
-    get().scheduleSave()
-  },
-
-  scheduleSave() {
-    if (_saveTimer) clearTimeout(_saveTimer)
-    _saveController?.abort()
-    _saveController = null
-    const generation = ++_saveGeneration
-    set({ saveStatus: 'pending', saveError: null })
-    _saveTimer = setTimeout(async () => {
-      _saveTimer = null
-      const s = get()
-      const controller = new AbortController()
-      _saveController = controller
-      set({ saveStatus: 'saving', saveError: null })
-      try {
-        const expiresAt = await saveProject(s.sessionCode, {
-          sessionCode: s.sessionCode,
-          expiresAt: s.expiresAt,
-          projectName: s.projectName,
-          stockPanels: s.stockPanels,
-          parts: s.parts,
-          settings: s.settings,
-          lastResult: s.lastResult,
-          allResults: s.allResults,
-          activeResultIndex: s.activeResultIndex,
-        }, controller.signal)
-        if (generation === _saveGeneration) {
-          _saveController = null
-          set({ expiresAt, saveStatus: 'saved', saveError: null })
+        // Cascade grain direction change → update grain in all parts using this material
+        if ('grainDirection' in patch) {
+          const stock = updated.find(p => p.id === id)
+          if (stock) {
+            const newGrain = stock.grainDirection
+            updatedParts = updatedParts.map(p =>
+              p.material === stock.label
+                ? { ...p, grainDirection: newGrain === 'geen' ? 'geen' : newGrain }
+                : p
+            )
+          }
         }
-      } catch (error) {
-        if (controller.signal.aborted || generation !== _saveGeneration) return
-        _saveController = null
-        set({
-          saveStatus: 'error',
-          saveError: error instanceof Error ? error.message : 'Opslaan mislukt.',
-        })
-      }
-    }, 2000)
-  },
-}))
+
+        return { stockPanels: updated, parts: updatedParts }
+      })
+      get().scheduleSave()
+    },
+    removeStock(id) {
+      set(s => ({ stockPanels: s.stockPanels.filter(p => p.id !== id) }))
+      get().scheduleSave()
+    },
+
+    addPart(part) {
+      set(s => ({ parts: [...s.parts, part] }))
+      get().scheduleSave()
+    },
+    updatePart(id, patch) {
+      set(s => ({
+        parts: s.parts.map(p => p.id === id ? { ...p, ...patch } : p),
+      }))
+      get().scheduleSave()
+    },
+    removePart(id) {
+      set(s => ({ parts: s.parts.filter(p => p.id !== id) }))
+      get().scheduleSave()
+    },
+
+    updateSettings(patch) {
+      set(s => ({ settings: { ...s.settings, ...patch } }))
+      get().scheduleSave()
+    },
+
+    setResults(results) {
+      set({ allResults: results, activeResultIndex: 0, lastResult: results[0] ?? null })
+      get().scheduleSave()
+    },
+
+    cycleResult() {
+      const { allResults, activeResultIndex } = get()
+      if (!allResults || allResults.length < 2) return
+      const next = (activeResultIndex + 1) % allResults.length
+      set({ activeResultIndex: next, lastResult: allResults[next] })
+      get().scheduleSave()
+    },
+
+    setResult(result) {
+      set({ lastResult: result })
+      get().scheduleSave()
+    },
+
+    scheduleSave() {
+      if (_saveTimer) clearTimeout(_saveTimer)
+      _saveController?.abort()
+      _saveController = null
+      const generation = ++_saveGeneration
+      set({ saveStatus: 'pending', saveError: null })
+      _saveTimer = setTimeout(() => {
+        _saveTimer = null
+        void runSave(generation)
+      }, 2000)
+    },
+
+    flushSave() {
+      if (!_saveTimer) return
+      clearTimeout(_saveTimer)
+      _saveTimer = null
+      void runSave(_saveGeneration, true)
+    },
+  }
+})
+
+// Flush a pending debounced save immediately when the tab is closed or
+// backgrounded — otherwise edits made in the last 2s are silently lost.
+// visibilitychange fires reliably cross-browser (including mobile Safari,
+// where pagehide/beforeunload are not).
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') useProjectStore.getState().flushSave()
+  })
+  window.addEventListener('pagehide', () => useProjectStore.getState().flushSave())
+}

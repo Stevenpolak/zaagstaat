@@ -1,5 +1,5 @@
 import type { Project } from './types'
-import { validateProject } from '../../shared/projectValidation'
+import { validateProject, sanitizeProject } from '../../shared/projectValidation'
 
 // Unambiguous alphabet: no O/0, I/1, S/5, Z/2, B/8
 const ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY3467'
@@ -24,12 +24,13 @@ export function formatExpiry(isoDate: string): string {
 
 const API_BASE = import.meta.env.VITE_WORKER_URL ?? ''
 
-export async function saveProject(code: string, data: object, signal?: AbortSignal): Promise<string> {
+export async function saveProject(code: string, data: object, signal?: AbortSignal, keepalive = false): Promise<string> {
   const res = await fetch(`${API_BASE}/project/${code}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
     signal,
+    keepalive,
   })
   if (!res.ok) throw new Error(`Opslaan mislukt: ${res.status}`)
   const result: unknown = await res.json()
@@ -48,5 +49,5 @@ export async function loadProject(code: string): Promise<Project> {
   const data: unknown = await res.json()
   const validation = validateProject(data)
   if (!validation.valid) throw new Error(`Projectgegevens zijn ongeldig: ${validation.error}`)
-  return data as Project
+  return sanitizeProject(data as Record<string, unknown>) as unknown as Project
 }

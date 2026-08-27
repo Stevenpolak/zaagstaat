@@ -106,7 +106,8 @@ export function validateProject(value: unknown): ValidationResult {
   if (!validSettings(value.settings)) return { valid: false, error: 'Ongeldige instellingen.' }
   if (!validResult(value.lastResult)) return { valid: false, error: 'Ongeldig berekeningsresultaat.' }
   if (value.allResults !== undefined && value.allResults !== null &&
-      (!Array.isArray(value.allResults) || value.allResults.length > 2 || !value.allResults.every(validResult))) {
+      (!Array.isArray(value.allResults) || value.allResults.length > 2 ||
+       !value.allResults.every(r => r !== null && validResult(r)))) {
     return { valid: false, error: 'Ongeldige alternatieve berekeningsresultaten.' }
   }
   if (value.activeResultIndex !== undefined && !isInteger(value.activeResultIndex, 0, 1)) {
@@ -114,4 +115,35 @@ export function validateProject(value: unknown): ValidationResult {
   }
 
   return { valid: true }
+}
+
+export interface SanitizedProject {
+  sessionCode: string
+  expiresAt: string
+  projectName: string
+  stockPanels: unknown[]
+  parts: unknown[]
+  settings: unknown
+  lastResult: unknown
+  allResults: unknown[] | null
+  activeResultIndex: number
+}
+
+/**
+ * Reconstructs a project from only the fields validateProject checked, dropping
+ * any extra keys the payload might carry. Call only after validateProject
+ * returns valid:true — this does not itself validate.
+ */
+export function sanitizeProject(value: Record<string, unknown>): SanitizedProject {
+  return {
+    sessionCode: value.sessionCode as string,
+    expiresAt: value.expiresAt as string,
+    projectName: value.projectName as string,
+    stockPanels: value.stockPanels as unknown[],
+    parts: value.parts as unknown[],
+    settings: value.settings,
+    lastResult: value.lastResult,
+    allResults: (value.allResults as unknown[] | undefined) ?? null,
+    activeResultIndex: (value.activeResultIndex as number | undefined) ?? 0,
+  }
 }

@@ -1,4 +1,4 @@
-import { validateProject } from '../../shared/projectValidation'
+import { validateProject, sanitizeProject } from '../../shared/projectValidation'
 import { securityHeaders } from '../../shared/securityHeaders'
 
 /**
@@ -24,13 +24,68 @@ export interface Env {
 }
 
 const TTL_SECONDS = 90 * 24 * 60 * 60
+const MAX_BODY_BYTES = 256_000
+
+// Generous on purpose: a school's shared NAT can put a whole classroom of
+// students behind one public IP, all autosaving independently. These limits
+// exist to blunt a single abusive script, not to throttle normal classroom use.
+const RATE_LIMIT_WINDOW_SECONDS = 60
+const RATE_LIMIT_MAX = { GET: 300, PUT: 120 } as const
 
 const CODE_RE = /^[ACDEFGHJKLMNPQRTUVWXY3467]{5}$/
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, character => ({
+function escapeHtml(value: unknown): string {
+  const str = typeof value === 'string' ? value : String(value ?? '')
+  return str.replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[character]!)
+}
+
+/**
+ * Reads a request body without ever holding more than maxBytes in memory,
+ * regardless of what (or whether) Content-Length claims. Returns null if the
+ * body exceeds the limit.
+ */
+async function readLimitedText(request: Request, maxBytes: number): Promise<string | null> {
+  const declared = request.headers.get('Content-Length')
+  if (declared && Number(declared) > maxBytes) return null
+  if (!request.body) return ''
+
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > maxBytes) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(merged)
+}
+
+/**
+ * Coarse per-IP throttle backed by KV — not atomic, so a best-effort limit
+ * rather than a hard guarantee, but enough to stop naive brute-force or
+ * enumeration scripts without requiring accounts or a paid rate-limiting product.
+ */
+async function checkRateLimit(env: Env, ip: string, method: 'GET' | 'PUT'): Promise<boolean> {
+  const bucket = Math.floor(Date.now() / (RATE_LIMIT_WINDOW_SECONDS * 1000))
+  const key = `ratelimit:${method}:${ip}:${bucket}`
+  const current = await env.PROJECTS.get(key)
+  const count = current ? Number(current) : 0
+  if (count >= RATE_LIMIT_MAX[method]) return false
+  await env.PROJECTS.put(key, String(count + 1), { expirationTtl: RATE_LIMIT_WINDOW_SECONDS * 2 })
+  return true
 }
 
 function cors(origin: string) {
@@ -99,11 +154,27 @@ export default {
     if (apiMatch) {
       const code = apiMatch[1].toUpperCase()
 
+      // Reject cross-origin browser calls outright. Doesn't stop non-browser
+      // clients (curl etc. don't send Origin), but it closes the "any website's
+      // JS can call this API from a visitor's browser" drive-by vector.
+      const requestOrigin = request.headers.get('Origin')
+      if (requestOrigin && env.ALLOWED_ORIGIN && env.ALLOWED_ORIGIN !== '*' && requestOrigin !== env.ALLOWED_ORIGIN) {
+        return new Response('Verboden', { status: 403, headers })
+      }
+
       if (!CODE_RE.test(code)) {
         return new Response('Ongeldige code', { status: 400, headers })
       }
 
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+
       if (request.method === 'GET') {
+        if (!(await checkRateLimit(env, ip, 'GET'))) {
+          return new Response(
+            JSON.stringify({ error: 'Te veel verzoeken, probeer later opnieuw.' }),
+            { status: 429, headers: { ...headers, 'Content-Type': 'application/json' } },
+          )
+        }
         const value = await env.PROJECTS.get(code)
         if (value === null) {
           return new Response(
@@ -118,8 +189,14 @@ export default {
       }
 
       if (request.method === 'PUT') {
-        const body = await request.text()
-        if (body.length > 256_000) return new Response('Project te groot', { status: 413, headers })
+        if (!(await checkRateLimit(env, ip, 'PUT'))) {
+          return new Response(
+            JSON.stringify({ error: 'Te veel verzoeken, probeer later opnieuw.' }),
+            { status: 429, headers: { ...headers, 'Content-Type': 'application/json' } },
+          )
+        }
+        const body = await readLimitedText(request, MAX_BODY_BYTES)
+        if (body === null) return new Response('Project te groot', { status: 413, headers })
         let data: unknown
         try { data = JSON.parse(body) } catch {
           return new Response('Ongeldige JSON', { status: 400, headers })
@@ -132,7 +209,7 @@ export default {
           )
         }
         const expiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString()
-        const storedProject = { ...(data as Record<string, unknown>), expiresAt }
+        const storedProject = { ...sanitizeProject(data as Record<string, unknown>), expiresAt }
         await env.PROJECTS.put(code, JSON.stringify(storedProject), { expirationTtl: TTL_SECONDS })
         return new Response(JSON.stringify({ ok: true, expiresAt }), {
           status: 200,
@@ -178,6 +255,9 @@ export default {
     try {
       const proxyHeaders = new Headers(request.headers)
       proxyHeaders.delete('Host')
+      // Always strip first — otherwise a client-supplied header would pass
+      // through untouched whenever ORIGIN_SECRET isn't configured.
+      proxyHeaders.delete('X-Origin-Verify')
       if (env.ORIGIN_SECRET) proxyHeaders.set('X-Origin-Verify', env.ORIGIN_SECRET)
       const proxyRes = await fetch(proxyUrl, {
         method: request.method,

@@ -212,8 +212,9 @@ export function SheetDiagram({ sheetIdx, stock, placements, parts, settings, par
         const cy = r.y + r.h / 2
         const fs = DIAGRAM_TYPE.waste
         if (r.w < fs * 2 || r.h < fs * 1.5) return null
-        const label = `${wr.w}×${wr.h}`
-        const bgW = label.length * fs * 0.58 + fs * 0.8
+        const label = truncateDiagramLabel(`${wr.w}×${wr.h}`, r.w - 12, fs)
+        if (!label) return null
+        const bgW = Math.min(label.length * fs * 0.58 + fs * 0.8, r.w - 4)
         const bgH = fs * 1.5
         return (
           <g key={`waste-${i}`}>
