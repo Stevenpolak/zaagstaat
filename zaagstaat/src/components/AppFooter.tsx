@@ -1,12 +1,15 @@
 export function AppFooter() {
   return (
-    <footer className="no-print border-t border-slate-100 py-3 text-center text-xs text-slate-400">
-      Zaagstaat v1.4.0 &mdash; gemaakt door{' '}
+    <footer className="no-print py-3 text-center text-xs border-t" style={{ borderColor: 'var(--line-faint)', color: 'var(--ink-ghost)' }}>
+      Zaagstaat v{import.meta.env.VITE_APP_VERSION} &mdash; gemaakt door{' '}
       <a
         href="https://studiokroos.nl"
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:text-slate-600 underline underline-offset-2 transition-colors"
+        className="underline underline-offset-2 transition-colors"
+        style={{ color: 'var(--ink-faint)' }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink-soft)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-faint)')}
       >
         Studio Kroos
       </a>

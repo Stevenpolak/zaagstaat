@@ -1,8 +1,11 @@
 import React from 'react'
 import type { GrainDirection } from '../lib/types'
 
+const ACCENT = 'var(--accent)'
+const GHOST = 'var(--ink-ghost)'
+
 function IconVerticaal({ active }: { active: boolean }) {
-  const c = active ? '#1d4ed8' : '#94a3b8'
+  const c = active ? ACCENT : GHOST
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <line x1="11" y1="3" x2="11" y2="19" stroke={c} strokeWidth="2" strokeLinecap="round"/>
@@ -13,7 +16,7 @@ function IconVerticaal({ active }: { active: boolean }) {
 }
 
 function IconHorizontaal({ active }: { active: boolean }) {
-  const c = active ? '#1d4ed8' : '#94a3b8'
+  const c = active ? ACCENT : GHOST
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <line x1="3" y1="11" x2="19" y2="11" stroke={c} strokeWidth="2" strokeLinecap="round"/>
@@ -23,27 +26,18 @@ function IconHorizontaal({ active }: { active: boolean }) {
   )
 }
 
-/** Circular rotation arrow — for parts: "mag vrij draaien" */
 function IconRotate({ active }: { active: boolean }) {
-  const c = active ? '#1d4ed8' : '#94a3b8'
-  // 270° clockwise arc: start at top (11,4.5), end at left (4.5,11)
-  // center (11,11), r=6.5 — large-arc=1, sweep=1 (clockwise)
-  // Tangent at left point is straight down → arrowhead opens upward
+  const c = active ? ACCENT : GHOST
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <path
-        d="M 11 4.5 A 6.5 6.5 0 1 1 4.5 11"
-        stroke={c} strokeWidth="2" strokeLinecap="round" fill="none"
-      />
-      {/* arrowhead at (4.5,11) pointing upward (clockwise tangent: arrives from below) */}
+      <path d="M 11 4.5 A 6.5 6.5 0 1 1 4.5 11" stroke={c} strokeWidth="2" strokeLinecap="round" fill="none"/>
       <polyline points="2.5,13 4.5,11 6.5,13" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   )
 }
 
-/** Circle with diagonal slash — for sheets: "geen nerf gedefinieerd" */
 function IconNoGrain({ active }: { active: boolean }) {
-  const c = active ? '#1d4ed8' : '#94a3b8'
+  const c = active ? ACCENT : GHOST
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <circle cx="11" cy="11" r="7.5" stroke={c} strokeWidth="2"/>
@@ -55,7 +49,6 @@ function IconNoGrain({ active }: { active: boolean }) {
 interface Props {
   value: GrainDirection
   onChange: (v: GrainDirection) => void
-  /** 'rotate' = circular arrow (parts), 'prohibited' = circle-slash (sheets) */
   noneIcon?: 'rotate' | 'prohibited'
 }
 
@@ -79,9 +72,11 @@ export function GrainPicker({ value, onChange, noneIcon = 'rotate' }: Props) {
             type="button"
             title={label}
             onClick={() => onChange(v)}
-            className={`p-1 rounded transition-colors ${
-              active ? 'bg-blue-100 ring-1 ring-blue-400' : 'hover:bg-slate-100'
-            }`}
+            className="p-1 rounded transition-colors"
+            style={active
+              ? { background: 'var(--accent-tint)', outline: '1px solid var(--accent)' }
+              : undefined
+            }
           >
             <Icon active={active} />
           </button>

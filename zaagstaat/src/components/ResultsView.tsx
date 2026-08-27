@@ -1,58 +1,58 @@
 import { useMemo } from 'react'
 import { useProjectStore, RESULT_LABELS } from '../store/useProjectStore'
-import { SheetDiagram, COLORS } from './SheetDiagram'
+import { SheetDiagram } from './SheetDiagram'
+import { PART_COLORS } from '../lib/colors'
 import { formatExpiry } from '../lib/session'
 
 export function ResultsView() {
   const { lastResult, allResults, activeResultIndex, cycleResult, stockPanels, parts, settings, sessionCode, expiresAt } = useProjectStore()
 
-  if (!lastResult) {
-    return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-        Voer platen en onderdelen in en klik <strong className="ml-1">Berekenen</strong>.
-      </div>
-    )
-  }
-
-  const { placements, sheetsUsed, sheetsUsedPerStock, wastePercent, wasteArea, usedArea, unplacedPartIds, cutLines } = lastResult
-
-  // Stable color map per part id
-  const partColorMap: Record<string, string> = {}
-  parts.forEach((p, i) => { partColorMap[p.id] = COLORS[i % COLORS.length] })
-
-  // Timestamp captured once when results are shown
   const printTimestamp = useMemo(() => {
     const now = new Date()
     const datum = now.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const tijd = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
     return `${datum} om ${tijd}`
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Track global sequence counter (continues across sheets for easy reference)
-  let globalSeq = 1
+  if (!lastResult) {
+    return (
+      <div className="flex items-center justify-center h-64 text-sm" style={{ color: 'var(--ink-faint)' }}>
+        Voer platen en onderdelen in en klik <strong className="ml-1" style={{ color: 'var(--ink-soft)' }}>Berekenen</strong>.
+      </div>
+    )
+  }
+
+  const { placements, sheetsUsed, sheetsUsedPerStock, unplacedPartIds, cutLines } = lastResult
+
+  const partColorMap: Record<string, string> = {}
+  parts.forEach((p, i) => { partColorMap[p.id] = PART_COLORS[i % PART_COLORS.length] })
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 print:p-0">
 
-      {/* Alternatieve nesting — cycle through strategies */}
+      {/* Alternatieve nesting — screen only */}
       {allResults && allResults.length > 1 && (
         <div className="no-print flex items-center gap-3 mb-4">
-          <span className="text-xs text-slate-400">Nesting:</span>
-          <span className="text-sm font-medium text-slate-700">{RESULT_LABELS[activeResultIndex]}</span>
+          <span className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faint)', letterSpacing: '0.06em' }}>
+            Nesting
+          </span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>{RESULT_LABELS[activeResultIndex]}</span>
           <button
             onClick={cycleResult}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 hover:border-blue-400 rounded-full px-3 py-1 transition-colors"
+            className="text-xs font-medium border rounded-full px-3 py-1 transition-colors"
+            style={{ color: 'var(--accent)', borderColor: 'var(--line-strong)' }}
           >
             Alternatieve nesting →
           </button>
         </div>
       )}
 
-      {/* Sheets per stock — only show when more than one sheet is used */}
+      {/* Sheets used summary — screen only */}
       {sheetsUsed.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="no-print flex flex-wrap gap-2 mb-6">
           {Object.entries(sheetsUsedPerStock).map(([label, count]) => (
-            <span key={label} className="bg-blue-50 text-blue-700 rounded-full px-3 py-0.5 text-xs font-medium">
+            <span key={label} className="rounded-full px-3 py-0.5 text-xs font-medium"
+              style={{ background: 'var(--accent-tint)', color: 'var(--accent)' }}>
               {label}: {count} {count === 1 ? 'plaat' : 'platen'}
             </span>
           ))}
@@ -61,9 +61,9 @@ export function ResultsView() {
 
       {/* Unplaced warnings */}
       {unplacedPartIds.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-          <p className="text-red-700 text-sm font-semibold mb-1">⚠ Onderdelen die niet passen:</p>
-          <ul className="text-red-600 text-sm list-disc list-inside">
+        <div className="border rounded-xl p-4 mb-6" style={{ background: 'rgba(168,85,68,0.07)', borderColor: 'rgba(168,85,68,0.3)' }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--error)' }}>⚠ Onderdelen die niet passen:</p>
+          <ul className="text-sm list-disc list-inside" style={{ color: 'var(--error)' }}>
             {unplacedPartIds.map(id => {
               const p = parts.find(p => p.id === id)
               return <li key={id}>{p?.label ?? id}</li>
@@ -72,16 +72,14 @@ export function ResultsView() {
         </div>
       )}
 
-      {/* ── Per-sheet sections ───────────────────────────────────────────── */}
+      {/* ── Per-sheet sections ───────────────────────────────── */}
       {sheetsUsed.map((sheet, idx) => {
         const stock = stockPanels.find(s => s.id === sheet.stockPanelId)
         if (!stock) return null
 
         const sheetPlacements = placements.filter(p => p.sheetIndex === idx)
-        const sheetStartSeq = globalSeq
-        globalSeq += sheetPlacements.length
+        const sheetStartSeq = 1 + placements.filter(p => p.sheetIndex < idx).length
 
-        // Per-sheet stats
         const sheetArea = stock.width * stock.height
         const sheetUsedArea = sheetPlacements.reduce((sum, pl) => sum + pl.width * pl.height, 0)
         const sheetRendement = Math.round(sheetUsedArea / sheetArea * 100)
@@ -90,95 +88,121 @@ export function ResultsView() {
         return (
           <section
             key={idx}
-            className={idx === 0 ? 'mb-10' : 'mb-10 print:break-before-page'}
+            className={idx === 0 ? 'mb-6' : 'mb-6 print-break-before'}
           >
-            {/* Sheet heading */}
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 pb-1 border-b border-slate-200">
-              {stock.label} — plaat {sheet.sheetNumber}
-              <span className="ml-2 text-slate-400 font-normal normal-case tracking-normal">
-                {stock.width} × {stock.height} mm
-              </span>
-            </h2>
+            {/* White sheet card */}
+            <div className="rounded-[14px] border p-5 md:p-6 print-card"
+              style={{ background: 'var(--sheet)', borderColor: 'var(--line)', boxShadow: 'var(--shadow-popup)' }}>
 
-            {/* Diagram + table side by side */}
-            <div className="flex flex-col lg:flex-row gap-5 items-start">
-
-              {/* SVG diagram — portrait orientation, narrower so table has more room */}
-              <div className="w-full lg:w-[36%] flex-shrink-0">
-                <SheetDiagram
-                  sheetIdx={idx}
-                  sheet={sheet}
-                  stock={stock}
-                  placements={placements}
-                  parts={parts}
-                  settings={settings}
-                  partColorMap={partColorMap}
-                  startSeq={sheetStartSeq}
-                  cutLines={cutLines}
-                  kerf={settings.kerf}
-                />
+              {/* Sheet heading — break-after:avoid keeps it with diagram */}
+              <div className="sheet-heading flex items-baseline gap-2 border-b pb-2 mb-4" style={{ borderColor: 'var(--line)' }}>
+                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: 'var(--ink)' }}>
+                  {stock.label} — plaat {sheet.sheetNumber}
+                </h2>
+                <span className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-faint)' }}>
+                  {stock.width} × {stock.height} mm
+                </span>
               </div>
 
-              {/* Per-sheet cut table */}
-              <div className="w-full lg:flex-1">
-                {/* Per-sheet stats */}
+              {/* Diagram */}
+              <div className="w-full mb-5">
+                {/* Landscape — desktop screen only */}
+                <div className="diagram-landscape hidden sm:block">
+                  <SheetDiagram
+                    sheetIdx={idx} sheet={sheet} stock={stock}
+                    placements={placements} parts={parts} settings={settings}
+                    partColorMap={partColorMap} startSeq={sheetStartSeq}
+                    cutLines={cutLines} kerf={settings.kerf}
+                    portrait={false}
+                  />
+                </div>
+                {/* Portrait — mobile + print */}
+                <div className="diagram-portrait sm:hidden">
+                  <SheetDiagram
+                    sheetIdx={idx} sheet={sheet} stock={stock}
+                    placements={placements} parts={parts} settings={settings}
+                    partColorMap={partColorMap} startSeq={sheetStartSeq}
+                    cutLines={cutLines} kerf={settings.kerf}
+                    portrait={true}
+                  />
+                </div>
+              </div>
+
+              {/* Stats + tabel */}
+              <div className="w-full print-stats-break">
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <Stat label="Onderdelen" value={sheetPlacements.length.toString()} />
-                  <Stat label="Gebruikt" value={`${(sheetUsedArea / 1e6).toFixed(2)} m² (${sheetRendement}%)`} />
+                  <Stat label="Gebruikt" value={`${(sheetUsedArea / 1e6).toFixed(2)} m²`} accent={`${sheetRendement}%`} />
                   <Stat label="Rest" value={`${sheetAfval} m²`} />
                 </div>
-                <table className="w-full text-sm border border-slate-200 rounded-xl overflow-hidden">
-                  <thead>
-                    <tr className="bg-slate-100 text-left text-slate-500 text-xs uppercase tracking-wide">
-                      <th className="px-3 py-2 font-semibold w-8">#</th>
-                      <th className="px-3 py-2 font-semibold">Onderdeel</th>
-                      <th className="px-3 py-2 font-semibold">Netto (mm)</th>
-                      {settings.brutomaten &&
-                        <th className="px-3 py-2 font-semibold">Bruto (mm)</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sheetPlacements.map((pl, i) => {
-                      const part = parts.find(p => p.id === pl.partId)
-                      const color = partColorMap[pl.partId] ?? COLORS[i % COLORS.length]
-                      const netW = part ? (pl.rotated ? part.height : part.width)  : pl.width
-                      const netH = part ? (pl.rotated ? part.width  : part.height) : pl.height
-                      const seq = sheetStartSeq + i
 
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                          {/* Seq badge matching diagram */}
-                          <td className="px-3 py-2.5">
-                            <span
-                              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
-                              style={{ background: color }}
-                            >
-                              {seq}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-slate-800">{part?.label ?? '?'}</td>
-                          <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{netW}×{netH}</td>
-                          {settings.brutomaten && (
+                <div className="border rounded-xl overflow-hidden" style={{ borderColor: 'var(--line)' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: 'var(--paper-warm)' }}>
+                        <th className="px-3 py-2 text-left w-10"
+                          style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--ink-faint)', fontWeight: 500 }}>#</th>
+                        <th className="px-3 py-2 text-left"
+                          style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--ink-faint)', fontWeight: 500 }}>Onderdeel</th>
+                        <th className="px-3 py-2 text-left"
+                          style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--ink-faint)', fontWeight: 500 }}>Netto</th>
+                        {settings.brutomaten &&
+                          <th className="px-3 py-2 text-left"
+                            style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--ink-faint)', fontWeight: 500 }}>Bruto</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sheetPlacements.map((pl, i) => {
+                        const part = parts.find(p => p.id === pl.partId)
+                        const color = partColorMap[pl.partId] ?? PART_COLORS[i % PART_COLORS.length]
+                        const netW = part ? (pl.rotated ? part.height : part.width)  : pl.width
+                        const netH = part ? (pl.rotated ? part.width  : part.height) : pl.height
+                        const seq = sheetStartSeq + i
+
+                        return (
+                          <tr key={i} style={{ borderTop: '1px solid var(--line-faint)', background: i % 2 === 0 ? 'transparent' : 'var(--paper-warm)' }}>
                             <td className="px-3 py-2.5">
-                              <span className="font-mono text-xs text-slate-500">{pl.width}×{pl.height}</span>
+                              <span
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold"
+                                style={{ background: 'var(--badge-bg)', color: 'var(--badge-ink)' }}
+                              >
+                                {seq}
+                              </span>
                             </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                            <td className="px-3 py-2.5">
+                              <span className="flex items-center gap-2" style={{ color: 'var(--ink)' }}>
+                                <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: color }} />
+                                {part?.label ?? '?'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5" style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--ink-soft)' }}>
+                              {netW}×{netH}
+                            </td>
+                            {settings.brutomaten && (
+                              <td className="px-3 py-2.5" style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--ink-soft)' }}>
+                                {pl.width}×{pl.height}
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
         )
       })}
 
-      {/* Contact link — screen only, mailto assembled on click to avoid scraping */}
+      {/* Contact link */}
       <div className="no-print text-center pt-6 pb-2">
         <a
           href="#"
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          className="text-xs transition-colors"
+          style={{ color: 'var(--ink-ghost)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink-soft)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-ghost)')}
           onClick={e => {
             e.preventDefault()
             const u = ['steven', 'studiokroos.nl'].join('@')
@@ -190,8 +214,8 @@ export function ResultsView() {
         </a>
       </div>
 
-      {/* PDF footer — only in print, repeated on every page via position */}
-      <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs text-slate-400 border-t border-slate-200 pt-2 bg-white">
+      {/* PDF footer */}
+      <div className="hidden print:block fixed bottom-4 left-0 right-0 text-center text-xs pt-2 bg-white" style={{ borderTop: '1px solid var(--line)', color: 'var(--ink-faint)' }}>
         Gegenereerd op {printTimestamp} met behulp van Zaagstaat —
         code: <strong>{sessionCode}</strong>, geldig tot {formatExpiry(expiresAt)}
       </div>
@@ -199,11 +223,15 @@ export function ResultsView() {
   )
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
-      <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-      <p className={`text-xl font-bold ${color ?? 'text-slate-800'}`}>{value}</p>
+    <div className="rounded-xl p-3 text-center border"
+      style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}>
+      <p className="text-xs mb-0.5" style={{ color: 'var(--ink-faint)' }}>{label}</p>
+      <p className="text-lg font-bold" style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>
+        {value}
+        {accent && <span className="text-sm ml-1" style={{ color: 'var(--accent)' }}>{accent}</span>}
+      </p>
     </div>
   )
 }

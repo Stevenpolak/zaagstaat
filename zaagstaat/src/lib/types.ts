@@ -71,4 +71,7 @@ export interface Project {
   parts: Part[]
   settings: Settings
   lastResult: OptimizationResult | null
+  /** Both strip directions; optional so projects saved before v1.6.2 still load. */
+  allResults?: OptimizationResult[] | null
+  activeResultIndex?: number
 }

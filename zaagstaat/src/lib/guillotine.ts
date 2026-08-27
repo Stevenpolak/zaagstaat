@@ -23,7 +23,7 @@ function guillotinePack(
 ): PackResult {
   const placed: PackResult['placements'] = []
   const cuts: PackResult['cuts'] = []
-  let spaces: Rect[] = [{ x: 0, y: 0, w: binW, h: binH }]
+  const spaces: Rect[] = [{ x: 0, y: 0, w: binW, h: binH }]
 
   for (const item of items) {
     let best: { spaceIdx: number; rotated: boolean; score: number } | null = null
@@ -235,11 +235,6 @@ function runOptimize(
     let sheetNum = 0
 
     while (remaining.length > 0) {
-      sheetNum++
-      const sheetIdx = sheetsUsed.length
-      sheetsUsed.push({ stockPanelId: stock.id, sheetNumber: sheetNum })
-      totalArea += usableW * usableH
-
       const packItems = remaining.map(e => {
         const preRotate = needsGrainRotation(e.part, stock)
         const canRotate = e.part.grainDirection === 'geen'
@@ -249,6 +244,16 @@ function runOptimize(
       })
 
       const { placements: results, cuts } = packFn(packItems, usableW, usableH, kerf)
+
+      if (!results.some(result => result.x !== -1)) {
+        for (const entry of remaining) unplacedPartIds.push(entry.part.id)
+        break
+      }
+
+      sheetNum++
+      const sheetIdx = sheetsUsed.length
+      sheetsUsed.push({ stockPanelId: stock.id, sheetNumber: sheetNum })
+      totalArea += usableW * usableH
 
       // Collect cut lines for this sheet (offset by schoonzagen border)
       for (const cut of cuts) {
@@ -289,10 +294,6 @@ function runOptimize(
         usedArea += placedW * placedH
       }
 
-      if (nextRemaining.length === remaining.length) {
-        for (const e of nextRemaining) unplacedPartIds.push(e.part.id)
-        break
-      }
       remaining = nextRemaining
     }
 

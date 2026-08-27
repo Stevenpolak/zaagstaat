@@ -1,0 +1,27 @@
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob:",
+  "connect-src 'self' https://*.workers.dev",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  'upgrade-insecure-requests',
+].join('; ')
+
+export function securityHeaders(): Record<string, string> {
+  return {
+    'Content-Security-Policy': CONTENT_SECURITY_POLICY,
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Permissions-Policy': 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+  }
+}

@@ -1,152 +1,94 @@
-# Zaagstaat uitrollen op Hetzner VPS
+# Zaagstaat uitrollen op Hetzner
 
-De architectuur is simpel:
-- **Frontend** (statische bestanden) → jouw Hetzner VPS via Caddy
-- **Backend** (sessieopslag) → Cloudflare Worker, al live op `zaagstaat-api.zaagstaat-api.workers.dev`
+De huidige productieopzet van Zaagstaat bestaat uit twee losse delen:
 
----
+- **Frontend:** statische Vite-build op `zaagstaat.studiokroos.nl`, geüpload via SFTP naar de documentroot van het subdomein.
+- **Projectopslag:** Cloudflare Worker met KV-opslag, ingesteld via `VITE_WORKER_URL`.
+
+Het subdomein wordt door de bestaande Hetzner-webserver/control-panelconfiguratie
+geserveerd. De Caddy-installatie op dezelfde VPS wordt voor andere diensten gebruikt en
+hoeft voor Zaagstaat niet aangepast of herstart te worden.
 
 ## Vereisten
 
-- Hetzner VPS met Ubuntu 22.04+ (Cloud of dedicated)
-- Een domeinnaam, bijv. `zaagstaat.jouwdomein.nl`
-- DNS A-record van dat domein → IP-adres van jouw VPS
+- Node.js en npm op de lokale ontwikkelmachine.
+- SFTP-toegang tot de documentroot van `zaagstaat.studiokroos.nl`.
+- Een lokale `.env.local` met de bestaande Cloudflare Worker-URL:
 
----
+```env
+VITE_WORKER_URL=https://jouw-worker.workers.dev
+```
 
-## 1. Server inrichten (eenmalig)
+`.env.local` bevat lokale configuratie en wordt niet naar Git of de webserver geüpload.
 
-SSH in op je VPS:
+## 1. Release lokaal controleren
+
+Voer vanuit de map `zaagstaat/` uit:
 
 ```bash
-ssh root@JOUW-VPS-IP
-```
-
-### Caddy installeren (webserver + automatisch HTTPS)
-
-```bash
-apt update && apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-  | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-  | tee /etc/apt/sources.list.d/caddy-stable.list
-apt update && apt install -y caddy
-```
-
-### Map aanmaken voor de site
-
-```bash
-mkdir -p /var/www/zaagstaat
-chown caddy:caddy /var/www/zaagstaat
-```
-
----
-
-## 2. Caddy configureren
-
-Maak `/etc/caddy/Caddyfile` aan:
-
-```bash
-nano /etc/caddy/Caddyfile
-```
-
-Inhoud (vervang het domein):
-
-```
-zaagstaat.jouwdomein.nl {
-    root * /var/www/zaagstaat
-    encode gzip
-    file_server
-    # SPA: stuur alle routes naar index.html
-    try_files {path} /index.html
-}
-```
-
-Herstart Caddy:
-
-```bash
-systemctl reload caddy
-```
-
-Caddy regelt automatisch een Let's Encrypt SSL-certificaat zodra het domein klopt.
-
----
-
-## 3. Frontend bouwen en uploaden
-
-Doe dit op **jouw eigen Mac**, vanuit de `zaagstaat/` map:
-
-```bash
-cd "/Users/steven/Desktop/CLAUDE/cutlist optimizer/zaagstaat"
+npm install
+npm test
+npm run lint
 npm run build
 ```
 
-Upload de `dist/` map naar de VPS:
+De productieversie staat daarna in `dist/`.
+
+## 2. Frontend uploaden via SFTP
+
+1. Open de bestaande SFTP-verbinding met Hetzner.
+2. Open de documentroot die in het Hetzner-control-panel aan het subdomein is gekoppeld.
+3. Maak bij voorkeur eerst een backup van de huidige bestanden.
+4. Upload **de inhoud van `dist/`**, niet de map `dist` zelf.
+5. Overschrijf de oude assets en `index.html`.
+6. Controleer dat ook het verborgen bestand `.htaccess` is geüpload.
+
+Oude bestanden met gehashte namen in `assets/` mogen worden verwijderd nadat de nieuwe
+versie werkt. Ze zijn niet meer nodig, maar tijdelijk laten staan is onschadelijk.
+
+## 3. `.htaccess`
+
+Vite kopieert `public/.htaccess` automatisch naar `dist/.htaccess`. Dit bestand regelt:
+
+- SPA-routes zoals `/ATEFJ`, zodat ze via `index.html` worden geopend;
+- Content Security Policy;
+- bescherming tegen iframe-inbedding en MIME-sniffing;
+- HTTPS/HSTS-, referrer- en browserrechtenbeleid.
+
+De headerregels staan binnen `<IfModule mod_headers.c>`. Daardoor blijft de site werken
+als de hostinglaag `mod_headers` niet beschikbaar heeft; in dat geval moeten de headers
+via het Hetzner-control-panel of de centrale webserverconfiguratie worden ingesteld.
+
+## 4. Na de upload controleren
+
+Open achtereenvolgens:
+
+- `https://zaagstaat.studiokroos.nl/`
+- een bestaand project via `https://zaagstaat.studiokroos.nl/CODE`
+- de browserconsole om CSP- of netwerkfouten uit te sluiten;
+- een testproject om opslaan en opnieuw laden via de Cloudflare Worker te controleren.
+
+Gebruik een harde refresh of leeg de PWA-cache als nog een oudere versie verschijnt.
+
+## 5. Cloudflare Worker uitrollen
+
+Alleen nodig wanneer bestanden onder `worker/` zijn gewijzigd:
 
 ```bash
-rsync -avz --delete dist/ root@JOUW-VPS-IP:/var/www/zaagstaat/
-```
-
-Klaar. Open `https://zaagstaat.jouwdomein.nl` in de browser.
-
----
-
-## 4. CORS instellen op de Worker
-
-Nu de frontend op een eigen domein staat, beperk je CORS tot dat domein.
-
-Pas `worker/wrangler.toml` aan:
-
-```toml
-[vars]
-ALLOWED_ORIGIN = "https://zaagstaat.jouwdomein.nl"
-```
-
-Deploy de Worker opnieuw:
-
-```bash
-cd worker/
+cd worker
+npm install
 npm run deploy
 ```
 
----
-
-## 5. Updaten na wijzigingen
-
-Elke keer dat je nieuwe code wilt uitrollen:
-
-```bash
-cd "/Users/steven/Desktop/CLAUDE/cutlist optimizer/zaagstaat"
-npm run build
-rsync -avz --delete dist/ root@JOUW-VPS-IP:/var/www/zaagstaat/
-```
-
-Optioneel: maak hier een shellscriptje van (`deploy.sh`):
-
-```bash
-#!/bin/bash
-set -e
-echo "Bouwen..."
-npm run build
-echo "Uploaden..."
-rsync -avz --delete dist/ root@JOUW-VPS-IP:/var/www/zaagstaat/
-echo "✓ Live op https://zaagstaat.jouwdomein.nl"
-```
-
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
-
----
+Controleer daarna opnieuw of een project kan worden opgeslagen en geladen. De frontend
+en Worker zijn afzonderlijke deployments; alleen de frontend via SFTP uploaden werkt de
+Worker dus niet bij.
 
 ## Samenvatting
 
-| Stap | Eenmalig / herhalend |
+| Wijziging | Actie |
 |---|---|
-| Caddy installeren + Caddyfile | Eenmalig |
-| DNS A-record instellen | Eenmalig |
-| `npm run build` + `rsync` | Bij elke update |
-| Worker deploy (bij Worker-wijzigingen) | Zelden |
-
-De Worker op Cloudflare blijft gratis draaien en hoeft niet naar de VPS.
+| Alleen frontend | `npm run build`, daarna inhoud van `dist/` via SFTP uploaden |
+| Worker/API | `cd worker && npm run deploy` |
+| Frontend én Worker | Beide acties uitvoeren |
+| Caddy | Geen actie voor Zaagstaat |

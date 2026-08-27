@@ -1,31 +1,125 @@
+/* ── Google Fonts ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
 @import "tailwindcss";
 
+/* ── Studio Kroos design tokens ──────────────────────────── */
+:root {
+  /* Paper & surfaces */
+  --paper:        #ECE7DC;
+  --paper-deep:   #EAE4D7;
+  --paper-warm:   #EFEADF;
+  --surface:      #FBFAF7;
+  --sheet:        #FFFFFF;
+  --field:        #FFFFFF;
+
+  /* Ink */
+  --ink:          #1C1916;
+  --ink-soft:     #6E675B;
+  --ink-faint:    #9C9484;
+  --ink-ghost:    #B6AC97;
+
+  /* Hairlines */
+  --line:         #E2DCCE;
+  --line-strong:  #CFC8B8;
+  --line-faint:   #EDE7DA;
+
+  /* Accent */
+  --accent:       #4C6273;
+  --accent-ink:   #3D5160;
+  --accent-tint:  #EBEEF1;
+
+  /* Functional */
+  --cut:          #CC2E22;
+  --warn:         #B06A3A;
+  --error:        #A85544;
+
+  /* Badge */
+  --badge-bg:     #E7E0D1;
+  --badge-ink:    #6E675B;
+
+  /* Radii */
+  --r-field:  7px;
+  --r-chip:   8px;
+  --r-card:   14px;
+  --r-popup:  20px;
+  --r-pill:   999px;
+
+  /* Shadows */
+  --shadow-card:  0 16px 40px -26px rgba(40,33,22,.42);
+  --shadow-popup: 0 18px 44px -28px rgba(40,33,22,.45);
+
+  /* Typography */
+  --font-display: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono:    'Spline Sans Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+body {
+  background: var(--paper);
+  font-family: var(--font-display);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
+}
+
+::selection {
+  background: rgba(76,98,115,0.22);
+}
+
+/* ── Paper grain overlay (screen only) ───────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.05;
+  background-image: url('/noise.svg');
+  background-size: 200px 200px;
+}
+
+/* ── Print ────────────────────────────────────────────────── */
 @media print {
-  /* Hide all UI chrome */
   .no-print { display: none !important; }
-
-  /* Reset page margins */
   @page { margin: 15mm 12mm; }
-
   body { background: white !important; }
+  body::before { display: none; }
 
-  /* Each sheet section starts on a new page (except first) */
-  .print\:break-before-page { break-before: page; }
+  /* Diagram orientatie: staand in print, liggend verbergen */
+  .diagram-landscape { display: none !important; }
+  .diagram-portrait  { display: block !important; }
 
-  /* Keep diagram + table together, avoid orphaned headers */
-  section { break-inside: avoid; }
+  /* Portrait SVG zo groot mogelijk op 1 pagina */
+  .diagram-portrait svg {
+    max-height: 230mm;
+    width: auto;
+    max-width: 100%;
+    display: block;
+  }
 
-  /* Remove rounded borders and shadows that don't print well */
+  /* Stats + tabel starten op nieuwe pagina */
+  .print-stats-break { break-before: page; }
+
+  /* Elke plaat-sectie start op een nieuwe pagina (behalve de eerste) */
+  .print-break-before { break-before: page; }
+
+  /* Geen break-inside: sections kunnen groot zijn en mogen over pagina's lopen */
+  /* Alleen de heading moet niet los komen te staan */
+  .sheet-heading { break-after: avoid; }
+
+  /* Kaart-styling stripped voor print — geen afgeronde hoeken die clippen */
+  .print-card {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
   svg { border-radius: 0 !important; }
-
-  /* Make SVG diagrams full width in print */
-  .lg\:w-\[58\%\] { width: 55% !important; }
-
-  /* Ensure table text is dark enough for print */
   table { border-collapse: collapse; }
   th, td { border: 1px solid #d1d5db; padding: 4px 8px; }
   thead tr { background: #f3f4f6 !important; }
-
-  /* Stat boxes */
-  .bg-slate-50 { background: white !important; border: 1px solid #e5e7eb !important; }
 }
